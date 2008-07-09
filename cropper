@@ -1,0 +1,30 @@
+#!/usr/bin/python
+#-*- coding: utf-8 -*-
+"""
+cropper [file]
+
+An app to easily crop an image into multiple pieces.
+"""
+
+from __future__ import with_statement, division, absolute_import
+import pygtk
+pygtk.require('2.0')
+import gtk, gobject
+gtk.gdk.threads_init()
+gobject.threads_init()
+import gtk.glade, pango
+from glade import GladeWindow, CustomWidget, resource
+from box import Box
+from imagespace import ImageSpace
+
+from optparse import OptionParser
+parser = OptionParser()
+parser.add_option("-f", "--file", dest="filename",
+                  help="write report to FILE", metavar="FILE")
+parser.add_option("-q", "--quiet",
+                  action="store_false", dest="verbose", default=True,
+                  help="don't print status messages to stdout")
+
+if __name__ == '__main__':
+	options, args = parser.parse_args()
+
