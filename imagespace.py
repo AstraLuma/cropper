@@ -1,10 +1,14 @@
 #-*- coding: utf-8 -*-
 """
-doc string
+The ImageSpace control. Handles the image and the selection boxes on top.
+
+Ignore the errant red outline when not running in optimized mode, it's just our 
+change-rect debugger.
 """
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys, cairo
 from glade import CustomWidget
+from rectutils import *
 
 __all__ = 'ImageSpace',
 
@@ -37,6 +41,70 @@ def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha
 		del pb
 	gc 
 	self.draw_rectangle(gc, False, x, y, width, height)
+
+def treeview_rubber_band(widget, rect, c):
+	"""
+	From gtk_tree_view_paint_rubber_band()
+	"""
+	cr = widget.window.cairo_create()
+	cr.set_line_width(1.0)
+	
+	cr.set_source_rgba(
+			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].blue / 65535,
+			.25)
+	
+	cr.rectangle(rect)
+	cr.clip()
+	cr.paint()
+	
+	cr.set_source_rgb(
+			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].blue / 65535)
+	
+	cr.rectangle(
+			rect.x + 0.5, rect.y + 0.5,
+			rect.width - 1, rect.height - 1)
+	cr.stroke();
+	
+	del cr
+
+def iconview_rubber_band(widget, rect, cr):
+	"""
+	From gtk_icon_view_paint_rubberband()
+	"""
+	# Style properties
+	fill_color_gdk = widget.style_get_property("selection-box-color")
+	fill_color_alpha = widget.style_get_property("selection-box-alpha")
+
+	if not fill_color_gdk:
+		fill_color_gdk = widget.style.base[gtk.STATE_SELECTED].copy()
+
+	cr.set_source_rgba(
+			fill_color_gdk.red / 65535,
+			fill_color_gdk.green / 65535,
+			fill_color_gdk.blue / 65535,
+			fill_color_alpha / 255)
+
+	cr.save()
+	cr.rectangle(rect)
+	cr.clip()
+	cr.paint()
+
+	# Draw the border without alpha
+	cr.set_source_rgb(
+			fill_color_gdk.red / 65535,
+			fill_color_gdk.green / 65535,
+			fill_color_gdk.blue / 65535)
+	cr.rectangle(
+			rect.x + 0.5, rect.y + 0.5,
+			rect.width - 1, rect.height - 1)
+	cr.stroke()
+	cr.restore()
+
+	del fill_color_gdk
 
 class ImageSpace(gtk.Widget):
 	"""
@@ -78,25 +146,18 @@ class ImageSpace(gtk.Widget):
 		           'The current user interaction mode. either selecting or inserting.',
 		           0,
 		           255,
-		           127,
+		           64,
 		           gobject.PARAM_READWRITE),
 		'model' : (gobject.TYPE_OBJECT, #gtk.TreeModel,
 		           'data model',
 		           'The model where boxes are pulled from.',
 		           gobject.PARAM_READWRITE),
-		'color_col' : (gobject.TYPE_UINT,
+		'box_col' : (gobject.TYPE_UINT,
 		           'color column',
 		           'The column to pull colors from.',
 		           0,
 		           sys.maxint,
-		           8,
-		           gobject.PARAM_READWRITE),
-		'rect_col' : (gobject.TYPE_UINT,
-		           'box column',
-		           'The column to pull rectangles from.',
-		           0,
-		           sys.maxint,
-		           7,
+		           1,
 		           gobject.PARAM_READWRITE),
 		'next_color' : (gtk.gdk.Color,
 		           'next color',
@@ -112,8 +173,7 @@ class ImageSpace(gtk.Widget):
 	mode = prop('mode')
 	alpha = prop('alpha')
 	model = prop('model')
-	color_col = prop('color_col')
-	rect_col = prop('rect_col')
+	box_col = prop('box_col')
 	next_color = prop('next_color')
 	
 	del prop
@@ -123,7 +183,7 @@ class ImageSpace(gtk.Widget):
 	_temporary_box = None # Used for adding boxes
 	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
 	
-	def __init__(self, image=None, model=None, color=8, rect=7):
+	def __init__(self, image=None, model=None, box=1):
 #		print "__init__", self, image, model, color, rect
 		gtk.Widget.__init__(self)
 		self._image = image
@@ -131,8 +191,7 @@ class ImageSpace(gtk.Widget):
 		self._mode = self.SELECT
 		self._alpha = 127
 		self._model = model
-		self._color_col = color
-		self._rect_col = rect
+		self._box_col = box
 		self._next_color = gtk.gdk.color_parse('#0f0')
 		self.cr = None
 		self._update()
@@ -192,11 +251,13 @@ class ImageSpace(gtk.Widget):
 		
 		# Some extra stuff
 		self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
-		self.connect("motion_notify_event", self.motion_notify_event)
+		#self.connect("motion_notify_event", self.do_motion_notify_event)
+#		self.connect("query-tooltip", self.do_query_tooltip_event)
 		try:
 			self.cr = self.window.cairo_create()
 		except AttributeError:
 			self.cr = None
+		self.set_tooltip_text('spam&eggs')
 
 	
 	def do_unrealize(self):
@@ -267,9 +328,9 @@ class ImageSpace(gtk.Widget):
 		gc = self.window.new_gc()
 		gc.copy(self.gc)
 		def draw_box(model, path, row, self):
-			color = model.get(row, self.color_col)
-			rect = model.get(row, self.rect_col)
-			draw_alpha_rectangle_gdk(self.window, gc, color, True, 
+			box = model.get(row, self.box_col)
+			rect = box.rect
+			draw_alpha_rectangle_gdk(self.window, gc, box.color, True, 
 				rect.x*z, rect.y*z, (rect.width+1)*z, (rect.height+1)*z, self._alpha)
 		if self._model is not None:
 			self._model.foreach(draw_box, self)
@@ -301,27 +362,40 @@ class ImageSpace(gtk.Widget):
 		# This all works
 		cr.set_line_width(linewidth)
 		cr.set_line_join(cairo.LINE_JOIN_MITER)
-		def draw_box(self, c, r):
-			r = gtk.gdk.Rectangle(*r)
-			r.width += 1
-			r.height += 1
+		def draw_box_border(self, c, r):
 			# draw border
 			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
 			cr.rectangle(r)
 			cr.stroke()
+		def draw_box_fill(self, c, r):
 			# draw fill
 			if self._alpha > 0:
 				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self._alpha/0xFF)
 				cr.rectangle(r)
 				cr.fill()
 		
+		boxes = []
 		def draw_box_row(model, path, row, self):
-			c,r = model.get(row, self._color_col, self._rect_col)
-			draw_box(self, c, r)
+			box, = model.get(row, self._box_col)
+			c = box.color
+			r = box.rect
+			r = gtk.gdk.Rectangle(*r)
+			r.width += 1
+			r.height += 1
+			boxes.append((c,r))
 		if self._model is not None:
 			self._model.foreach(draw_box_row, self)
+			for c,r in boxes:
+				draw_box_fill(self,c,r)
 		if self._temporary_box is not None:
-			draw_box(self, self._temporary_box.color, self._temporary_box.rect)
+			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect)
+		for c,r in boxes:
+			draw_box_border(self,c,r)
+		if self._temporary_box is not None:
+			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect)
+		if __debug__:
+			if self._changed_rect is not None:
+				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect)
 	
 	def _update(self):
 		# Called when zoom or image changes
@@ -338,10 +412,131 @@ class ImageSpace(gtk.Widget):
 		if self.flags() & gtk.REALIZED:
 			self.window.invalidate_rect(self.allocation, True)
 	
-	def find_box_under_coord(self,x,y):
+	def img2widgetcoords(self, x,y):
+		"""is.img2widgetcoords(num,num) -> (num, num)
+		Converts the given (x,y) from image coordinates to widget coordinates 
+		(suitable for using with GTK).
 		
+		Inverse of widget2imgcoords().
+		"""
+		# Change to centered-origin
+		if self._image is not None:
+			x -= self._image.get_width() * self._zoom / 2
+			y -= self._image.get_height() * self._zoom / 2
+		# Scale
+		x *= self._zoom
+		y *= self._zoom
+		# Change to Widget's origin
+		x += self.allocation.width / 2
+		y += self.allocation.height / 2
+		return x,y
 	
-	def motion_notify_event(self, widget, event):
+	def widget2imgcoords(self, x,y):
+		"""is.img2widgetcoords(num,num) -> (num, num)
+		Converts the given (x,y) from widget coordinates (suitable for using 
+		with GTK) to image coordinates.
+		
+		Inverse of img2widgetcoords().
+		"""
+		# Change to centered-origin
+		x -= self.allocation.width / 2
+		y -= self.allocation.height / 2
+		# Scale
+		x *= self._zoom
+		y *= self._zoom
+		# Change to Image's origin
+		if self._image is not None:
+			x += self._image.get_width() * self._zoom / 2
+			y += self._image.get_height() * self._zoom / 2
+		return x,y
+	
+	def alloc2img(self):
+		"""is.alloc2img() -> Rectangle
+		Translates allocation to the images coordinates.
+		"""
+		x,y = self.widget2imgcoords(self.allocation.x, self.allocation.y)
+		w = self.allocation.width * self._zoom
+		h = self.allocation.height * self._zoom
+		return gtk.gdk.Rectangle(x,y,w,h)
+	
+	def find_boxes_under_coord(self,x,y):
+		"""is.find_boxes_under_coord(num,num) -> [Box]
+		Returns all of the boxes underneath image location (x,y).
+		"""
+		return tuple(r[self._box_col] for r in self._model if rect_contains(r[self._box_col].rect,x,y))
+	
+	_boxes_under_cursor = None
+	
+	def get_tooltip_text(self, boxes):
+		if len(boxes) == 0:
+			return None
+		return '\n'.join(b.dimensions_text() for b in boxes)
+	
+	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
+		# If widget wasn't passed as self
+		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
+#		print 'do_query_tooltip_event',self, x,y, keyboard_mode, tooltip
+		ix,iy = self.widget2imgcoords(x,y)
+		boxes = self.find_boxes_under_coord(ix,iy)
+		if len(boxes) == 0:
+			return False
+		tooltip.set_text(self.get_tooltip_text(boxes))
+		return True
+	
+	_changed_rect = None
+	
+	def _update_boxes(self, x,y):
+		"""
+		Handles the fairly complex algorithm used to cache-and-calculate the 
+		boxes that are underneath the cursor.
+		
+		Current Caching: A rectangle for which the current state is true.
+		"""
+		alloc = self.alloc2img()
+		
+		if not rect_contains(alloc, x,y):
+			# The mouse has left the widget
+			self._changed_rect = None
+			self._boxes_under_cursor = []
+			return True
+		
+		if self._changed_rect is None or not rect_contains(self._changed_rect, x, y):
+			# The mouse left the common area
+#			print '(%i,%i)' % (x,y),
+			
+#			print "Old rect:", tuple(self._changed_rect) if self._changed_rect is not None else self._changed_rect,
+			self._changed_rect = None
+				
+			
+			# Calculate new boxes
+			newboxes = self.find_boxes_under_coord(x,y)
+			self._boxes_under_cursor = newboxes
+#			print "newboxes:", newboxes,
+			
+			# Update the caching rectangle
+			if len(newboxes):
+				changed = newboxes[0].rect
+			else: # Outside of any boxes, use allocation
+				changed = alloc
+			for b in newboxes[1:]:
+				changed = changed.intersect(b.rect)
+			for r in self._model:
+				b = r[self._box_col]
+				if b not in newboxes:
+					changed = rect_diff(changed, b.rect, (x,y))
+			if changed == alloc: # This is so extrodinarily BAD that we should test for it.
+				from warnings import warn
+				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
+				cahnged = None
+#			print "Change rect:", tuple(changed)
+			self._changed_rect = changed
+			if __debug__: self.queue_draw_area(*self.allocation)
+			assert changed is None or rect_contains(changed, x,y)
+			return True
+		else:
+			return False
+	
+	def do_motion_notify_event(self, event):
 		# if this is a hint, then let's get all the necessary 
 		# information, if not it's all we need.
 		if event.is_hint:
@@ -351,12 +546,18 @@ class ImageSpace(gtk.Widget):
 			y = event.y
 			state = event.state
 		
+		# Update box underneath cursor, for tooltip
+		if self._update_boxes(*self.widget2imgcoords(x,y)):
+			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
+			self.trigger_tooltip_query()
+		
 		if self._mode == self.INSERT:
 			if (state & gtk.gdk.BUTTON1_MASK):
 				# Adjust temporary box
 				pass
 	
 	def do_button_press_event(self, event):
+		print 'do_button_press_event',self, event
 		# make sure it was the first button
 		if event.button == 1:
 			if self._mode == self.INSERT:
@@ -366,7 +567,9 @@ class ImageSpace(gtk.Widget):
 				# Change selection
 				pass
 		return True
+	
 	def do_button_release_event(self, event):
+		print 'do_button_release_event',self, event
 		# make sure it was the first button
 		if event.button == 1:
 			if self._mode == self.INSERT:
@@ -389,6 +592,7 @@ if __name__ == "__main__":
 	
 	bls = BoxListStore()
 	bls.append(['', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+	bls.append(['', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
 	print "Model data:", map(tuple, bls)
 	w = ImageSpace(model=bls)
 	w.alpha = 0x55

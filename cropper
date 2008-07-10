@@ -10,8 +10,8 @@ from __future__ import with_statement, division, absolute_import
 import pygtk
 pygtk.require('2.0')
 import gtk, gobject
-gtk.gdk.threads_init()
-gobject.threads_init()
+#gtk.gdk.threads_init()
+#gobject.threads_init()
 import gtk.glade, pango
 from glade import GladeWindow, resource
 from box import Box
@@ -32,12 +32,12 @@ class Cropper(GladeWindow, Actor):
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
 		self.model = BoxListStore()
-		self.model.exist_image = 'image'
+		self.model.exist_image = 'gtk-file'
 		self.model.no_exist_image = 'gtk-cancel'
 		
 		self.tvAreas.set_model(self.model)
 		
-		self.isImage = ImageSpace(model=self.model, color=8, rect=7)
+		self.isImage = ImageSpace(model=self.model, box=1)
 		self.swImage.add_with_viewport(self.isImage)
 		
 		self.crpExists = gtk.CellRendererPixbuf()
@@ -60,12 +60,13 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.append_column(self.tvcFile)
 		self.tvAreas.append_column(self.tvcColor)
 		self.tvAreas.set_headers_visible(False)
-		#self.tvAreas.set_tooltip_column(11) Causes segfaults
+		self.tvAreas.set_tooltip_column(11)
 	
 	def present(self):
 		self.wCropper.show_all()
 		self.wCropper.present()
 	
+	# Actions/UI stuff
 	@action(stock='open')
 	def Open(self, filename=None):
 		if filename is None:
@@ -140,15 +141,25 @@ class Cropper(GladeWindow, Actor):
 	@action()
 	def AutoShrink(self):
 		pass
+	
+	# Event handlers
+	def on_delete_event(self, widget, event):
+		gtk.main_quit()
 
 if __name__ == '__main__':
 	options, args = parser.parse_args()
 	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
 	
-	app.model.append(['test1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+	app.model.insert(0, ['test1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+	app.model.insert(0, ['test2.gif', Box(gtk.gdk.Rectangle( 50,100,200,300), gtk.gdk.color_parse('#AF0'))])
+	app.model.insert(0, ['test3.gif', Box(gtk.gdk.Rectangle(225,375,300,400), gtk.gdk.color_parse('#0AF'))])
 	app.isImage.image=gtk.gdk.pixbuf_new_from_file('test.gif')
+	
+	app.wCropper.set_default_size(700, 1000)
 	
 	# Run
 	app.present()
+	print "#11", app.model.get_value(app.model.get_iter_first(), 11)
+	print "Model data:", map(tuple, app.model)
 	gtk.gdk.set_show_events(True)
 	gtk.main()

@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Wed Jul  9 17:14:51 2008 -->
+<!--Generated with glade3 3.4.5 on Thu Jul 10 13:03:59 2008 -->
 <glade-interface>
   <widget class="GtkWindow" id="wCropper">
+    <signal name="delete_event" handler="on_delete_event"/>
     <child>
       <widget class="GtkVBox" id="vbContent">
         <property name="visible">True</property>
@@ -270,9 +271,9 @@
           </packing>
         </child>
         <child>
-          <widget class="GtkLabel" id="statusbarfiller">
+          <widget class="GtkStatusbar" id="sbCropper">
             <property name="visible">True</property>
-            <property name="label" translatable="yes">label</property>
+            <property name="spacing">2</property>
           </widget>
           <packing>
             <property name="expand">False</property>

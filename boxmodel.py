@@ -6,6 +6,26 @@ from modelhelpers import GenericTreeStore
 
 __all__ = 'BoxListStore',
 
+#class tracedict(dict):
+#	def __setitem__(self, key, value):
+#		print 'tracedict.__setitem__', key, value
+#		super(tracedict, self).__setitem__(key, value)
+#	def __delitem__(self, key):
+#		print 'tracedict.__delitem__', key
+#		super(tracedict, self).__delitem__(key, value)
+#	def update(self, *p, **kw):
+#		print 'tracedict.update', p,kw
+#		super(tracedict, self).update(*p, **kw)
+#	def get(self, *p, **kw):
+#		print 'tracedict.get', p,kw
+#		super(tracedict, self).get(*p, **kw)
+#	def setdefault(self, *p, **kw):
+#		print 'tracedict.setdefault', p,kw
+#		super(tracedict, self).setdefault(*p, **kw)
+#	def clear(self):
+#		print 'tracedict.clear'
+#		super(tracedict, self).clear()
+
 class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	"""
 	Columns:
@@ -42,7 +62,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 			str, Box, # True, staight-up columns
 			str, # Display name
 			int, int, int, int, gdk.Rectangle, gdk.Color, # Linked columns
-			bool, str, unicode, # Purely-generated columns
+			bool, str, gobject.TYPE_STRING, # Purely-generated columns
 			)
 	__data = {} # { id(Box) : (fn, Box, displayfn, connect), }
 	__order = [] # [ id(Box), ]
@@ -83,7 +103,9 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		self.__data[ref] = rv # VERY, VERY IMPORTANT
 		
 		self.__order.append(ref)
-		self.__order.sort(key=lambda k: self.__data[k][1])
+		# FIXME: Trigger events when this sorts
+#		self.__order.sort(key=lambda k: self.__data[k][1])
+#		print '_createrow:','self.__data:', self.__data
 		return ref
 	
 	_in_set = False
@@ -206,7 +228,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def on_iter_next(self, rowref):
 		idx = self.__order.index(rowref)
 		idx += 1
-		if idx >= len(self.__data)-1:
+		if idx >= len(self.__data):
 			return None
 		else:
 			return self.__order[idx]
@@ -251,11 +273,13 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		self.__order.remove(rowref)
 		row = self.__data[rowref]
 		del self.__data[rowref]
+#		print 'on_remove:','self.__data:', self.__data
 		row[1].disconnect(row[3])
 	
 	def on_clear(self):
 		self.__data.clear()
 		self.__order = []
+#		print 'on_clear:','self.__data:', self.__data
 		
 	on_prepend = _insert
 	on_append = _insert
@@ -273,5 +297,8 @@ gobject.type_register(BoxListStore)
 if __name__ == "__main__":
 	bls = BoxListStore()
 	bls.append(['', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
-	print map(tuple, bls)
+	bls.append(['', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
+	print 'Data:'
+	for i, row in enumerate(map(tuple, bls)):
+		print '%i. %r' % (i, row)
 

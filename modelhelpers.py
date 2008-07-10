@@ -38,7 +38,7 @@ class GenericTreeStore:
 		return rv
 	
 	def on_clear(self): # A default
-		self.foreach(lambda self, path, iter, ud: self.remove(iter), None)
+		self.foreach(lambda self, path, iter, ud: self.on_remove(self.get_user_data(iter)), None)
 	
 	def clear(self):
 		paths = []
