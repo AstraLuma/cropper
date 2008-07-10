@@ -13,18 +13,135 @@ import gtk, gobject
 gtk.gdk.threads_init()
 gobject.threads_init()
 import gtk.glade, pango
-from glade import GladeWindow, CustomWidget, resource
+from glade import GladeWindow, resource
 from box import Box
+from boxmodel import BoxListStore
 from imagespace import ImageSpace
-
+from actor import Actor, action
 from optparse import OptionParser
+
 parser = OptionParser()
-parser.add_option("-f", "--file", dest="filename",
-                  help="write report to FILE", metavar="FILE")
-parser.add_option("-q", "--quiet",
-                  action="store_false", dest="verbose", default=True,
-                  help="don't print status messages to stdout")
+#parser.add_option("-f", "--file", dest="filename",
+#                  help="write report to FILE", metavar="FILE")
+#parser.add_option("-q", "--quiet",
+#                  action="store_false", dest="verbose", default=True,
+#                  help="don't print status messages to stdout")
+
+
+class Cropper(GladeWindow, Actor):
+	def __init__(self, options, args, *pargs, **kwargs):
+		print 'Cropper.__init__()'
+		self.model = BoxListStore()
+		self.tvAreas.set_model(self.model)
+		self.isImage = ImageSpace(model=self.model, color=8, rect=7)
+		self.swImage.add_with_viewport(self.isImage)
+		self.swImage.exist_image = 'image'
+		self.swImage.no_exist_image = 'gtk-cancel'
+		
+		self.crpExists = gtk.CellRendererPixbuf()
+		self.crtFilename = gtk.CellRendererText()
+		self.crtColor = gtk.CellRendererText()
+		self.crtColor.set_property('background-set', True)
+		self.crtColor.set_property('text', ' '*8)
+		
+		self.tvcMain = gtk.TreeViewColumn()
+		self.tvcMain.pack_start(self.crpExists, False)
+		self.tvcMain.set_attributes(self.crpExists, icon_name=10)
+		self.tvcMain.pack_start(self.crtFilename, True)
+		self.tvcMain.set_attributes(self.crtFilename, text=2)
+		self.tvcMain.pack_start(self.crtColor, False)
+		self.tvcMain.set_attributes(self.crtColor, background_gdk=4)
+		
+		self.tvAreas.append_column(self.tvcMain)
+		self.tvAreas.set_headers_visible(False)
+	
+	def present(self):
+		self.wCropper.show_all()
+		self.wCropper.present()
+	
+	@action(stock='open')
+	def Open(self, filename=None):
+		if filename is None:
+			# display dialog
+			pass
+		# Open image
+	
+	@action(stock='gtk-save', label='Crop')
+	def Crop(self):
+		pass
+	
+	@action(stock='gtk-clear')
+	def Clear(self):
+		pass
+	
+	@action(stock='gtk-cut')
+	def Cut(self):
+		pass
+	
+	@action(stock='gtk-copy')
+	def Copy(self):
+		pass
+	
+	@action(stock='gtk-paste')
+	def Paste(self):
+		pass
+	
+	@action(stock='gtk-delete')
+	def Delete(self):
+		pass
+	
+	@action(stock='gtk-select-all')
+	def SelectAll(self):
+		pass
+	
+	@action(stock='gtk-zoom-in')
+	def ZoomIn(self):
+		pass
+	
+	@action(stock='gtk-zoom-out')
+	def zoomout(self):
+		pass
+	
+	@action(stock='gtk-zoom-100')
+	def ZoomNormal(self):
+		pass
+	
+	@action(stock='gtk-zoom-fit')
+	def ZoomFit(self):
+		pass
+	
+	@action(stock='cropper-flip-horizontal', theme='object-flip-horizontal', label='Flip _Horizontal')
+	def FlipHorizontal(self):
+		pass
+	
+	@action(stock='cropper-flip-vertical', theme='object-flip-vertical', label='Flip _Vertical')
+	def FlipVertical(self):
+		pass
+	
+	@action(stock='cropper-rotate-right', theme='object-rotate-right', label='Rotate Clockwise', shortlabel='Right')
+	def RotateCW(self):
+		pass
+	
+	@action(stock='cropper-rotate-left', theme='object-rotate-left', label='Rotate Counterclockwise', shortlabel='Left')
+	def RotateCCW(self):
+		pass
+	
+	@action(stock='gtk-preferences')
+	def EditPreferences(self):
+		pass
+	
+	@action()
+	def AutoShrink(self):
+		pass
 
 if __name__ == '__main__':
 	options, args = parser.parse_args()
-
+	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
+	
+	app.model.append(['test1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+	app.isImage.image=gtk.gdk.pixbuf_new_from_file('test.gif')
+	
+	# Run
+	app.present()
+	gtk.gdk.set_show_events(True)
+	gtk.main()

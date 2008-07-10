@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8" standalone="no"?>
 <!DOCTYPE glade-interface SYSTEM "glade-2.0.dtd">
-<!--Generated with glade3 3.4.5 on Tue Jul  8 22:36:30 2008 -->
+<!--Generated with glade3 3.4.5 on Wed Jul  9 17:14:51 2008 -->
 <glade-interface>
   <widget class="GtkWindow" id="wCropper">
     <child>

@@ -236,10 +236,8 @@ class ImageSpace(gtk.Widget):
 		# create any resources in here.
 		
 		if self.cr is None:
-			print "Using GDK"
 			return self._expose_gdk(event)
 		else:
-			print "Using Cairo"
 			# For w/e reason, this has to be created every time
 			self.cr = self.window.cairo_create()
 			return self._expose_cairo(event)

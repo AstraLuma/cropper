@@ -23,13 +23,15 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	"""
 	__gtype_name__ = 'BoxListStore'
 	__gproperties__ = {
-		'exist-image' : (gdk.Pixbuf,
+		'exist-image' : (gobject.TYPE_STRING,
 		           'file exists image',
 		           'Image shown when the filename exists.',
+		           None,
 		           gobject.PARAM_READWRITE),
-		'no-exist-image' : (gdk.Pixbuf,
+		'no-exist-image' : (gobject.TYPE_STRING,
 		           "file doesn't exists image",
 		           "Image shown when the filename doesn't exist.",
+		           None,
 		           gobject.PARAM_READWRITE),
 		}
 	_LEN = 11
@@ -39,7 +41,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 			str, Box, # True, staight-up columns
 			str, # Display name
 			int, int, int, int, gdk.Rectangle, gdk.Color, # Linked columns
-			bool, gdk.Pixbuf, # Purely-generated columns
+			bool, str, # Purely-generated columns
 			)
 	__data = {} # { id(Box) : (fn, Box, displayfn, connect), }
 	__order = [] # [ id(Box), ]
@@ -93,8 +95,6 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def get_exist_image(self):
 		return self._exist_image
 	def set_exist_image(self, value):
-		if not isinstance(value, gdk.PixBuf) and value is not None:
-			raise ValueError, "Must be a gtk.gdk.PixBuf or None"
 		self._exist_image = value
 		self.foreach(lambda model, path, iter, ud: model.row_changed(path, iter))
 	exist_image = property(get_exist_image, set_exist_image)
@@ -102,8 +102,6 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def get_no_exist_image(self):
 		return self._no_exist_image
 	def set_no_exist_image(self, value):
-		if not isinstance(value, gdk.PixBuf) and value is not None:
-			raise ValueError, "Must be a gtk.gdk.PixBuf or None"
 		self._no_exist_image = value
 		self.foreach(lambda model, path, iter, ud: model.row_changed(path, iter))
 	no_exist_image = property(get_no_exist_image, set_no_exist_image)
@@ -135,7 +133,10 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		return self._col_types[index]
 	
 	def on_get_iter(self, path):
-		return self.__order[path[0]]
+		try:
+			return self.__order[path[0]]
+		except IndexError:
+			pass
 	
 	def on_get_path(self, rowref):
 		return self.__order.index(rowref),
@@ -206,7 +207,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 			return self.__order[idx]
 	
 	def on_iter_children(self, parent):
-		if parent is None:
+		if parent is None and len(self.__order):
 			return self.__order[0]
 	
 	def on_iter_has_child(self, rowref):
