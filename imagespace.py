@@ -98,6 +98,10 @@ class ImageSpace(gtk.Widget):
 		           sys.maxint,
 		           7,
 		           gobject.PARAM_READWRITE),
+		'next_color' : (gtk.gdk.Color,
+		           'next color',
+		           'The color the next box will be.',
+		           gobject.PARAM_READWRITE),
 		}
 	
 	prop = lambda name: property((lambda s: s.get_property(name)), (lambda s,v: s.set_property(name,v)))
@@ -108,12 +112,16 @@ class ImageSpace(gtk.Widget):
 	mode = prop('mode')
 	alpha = prop('alpha')
 	model = prop('model')
-	color_col = prop('alpha')
-	rect_col = prop('model')
+	color_col = prop('color_col')
+	rect_col = prop('rect_col')
+	next_color = prop('next_color')
 	
 	del prop
 	
-	_image = _zoom = _mode = _alpha = _model = _color_col = _rect_col = None
+	_image = _zoom = _mode = _alpha = _model = _color_col = _rect_col = _next_color = None
+	
+	_temporary_box = None # Used for adding boxes
+	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
 	
 	def __init__(self, image=None, model=None, color=8, rect=7):
 #		print "__init__", self, image, model, color, rect
@@ -125,6 +133,7 @@ class ImageSpace(gtk.Widget):
 		self._model = model
 		self._color_col = color
 		self._rect_col = rect
+		self._next_color = gtk.gdk.color_parse('#0f0')
 		self.cr = None
 		self._update()
 	
@@ -163,10 +172,10 @@ class ImageSpace(gtk.Widget):
 			height=self.allocation.height,
 			window_type=gtk.gdk.WINDOW_CHILD,
 			wclass=gtk.gdk.INPUT_OUTPUT,
-			event_mask=self.get_events() | gtk.gdk.EXPOSURE_MASK)
-#			         | gtk.gdk.BUTTON1_MOTION_MASK | gtk.gdk.BUTTON_PRESS_MASK
-#			         | gtk.gdk.POINTER_MOTION_MASK
-#			         | gtk.gdk.POINTER_MOTION_HINT_MASK)
+			event_mask=self.get_events() | gtk.gdk.EXPOSURE_MASK
+			         | gtk.gdk.BUTTON1_MOTION_MASK | gtk.gdk.BUTTON_PRESS_MASK
+			         | gtk.gdk.POINTER_MOTION_MASK
+			         | gtk.gdk.POINTER_MOTION_HINT_MASK)
 		
 		# Associate the gdk.Window with ourselves, Gtk+ needs a reference
 		# between the widget and the gdk window
@@ -183,6 +192,7 @@ class ImageSpace(gtk.Widget):
 		
 		# Some extra stuff
 		self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
+		self.connect("motion_notify_event", self.motion_notify_event)
 		try:
 			self.cr = self.window.cairo_create()
 		except AttributeError:
@@ -291,8 +301,7 @@ class ImageSpace(gtk.Widget):
 		# This all works
 		cr.set_line_width(linewidth)
 		cr.set_line_join(cairo.LINE_JOIN_MITER)
-		def draw_box(model, path, row, self):
-			c,r = model.get(row, self._color_col, self._rect_col)
+		def draw_box(self, c, r):
 			r = gtk.gdk.Rectangle(*r)
 			r.width += 1
 			r.height += 1
@@ -306,8 +315,13 @@ class ImageSpace(gtk.Widget):
 				cr.rectangle(r)
 				cr.fill()
 		
+		def draw_box_row(model, path, row, self):
+			c,r = model.get(row, self._color_col, self._rect_col)
+			draw_box(self, c, r)
 		if self._model is not None:
-			self._model.foreach(draw_box, self)
+			self._model.foreach(draw_box_row, self)
+		if self._temporary_box is not None:
+			draw_box(self, self._temporary_box.color, self._temporary_box.rect)
 	
 	def _update(self):
 		# Called when zoom or image changes
@@ -323,6 +337,42 @@ class ImageSpace(gtk.Widget):
 			self._scaled = None
 		if self.flags() & gtk.REALIZED:
 			self.window.invalidate_rect(self.allocation, True)
+	
+	def find_box_under_coord(self,x,y):
+		
+	
+	def motion_notify_event(self, widget, event):
+		# if this is a hint, then let's get all the necessary 
+		# information, if not it's all we need.
+		if event.is_hint:
+			x, y, state = event.window.get_pointer()
+		else:
+			x = event.x
+			y = event.y
+			state = event.state
+		
+		if self._mode == self.INSERT:
+			if (state & gtk.gdk.BUTTON1_MASK):
+				# Adjust temporary box
+				pass
+	
+	def do_button_press_event(self, event):
+		# make sure it was the first button
+		if event.button == 1:
+			if self._mode == self.INSERT:
+				# Begin new box
+				pass
+			else:
+				# Change selection
+				pass
+		return True
+	def do_button_release_event(self, event):
+		# make sure it was the first button
+		if event.button == 1:
+			if self._mode == self.INSERT:
+				# End box
+				pass
+		return True
 CustomWidget(ImageSpace)
 
 if __name__ == "__main__":

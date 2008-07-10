@@ -32,28 +32,35 @@ class Cropper(GladeWindow, Actor):
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
 		self.model = BoxListStore()
+		self.model.exist_image = 'image'
+		self.model.no_exist_image = 'gtk-cancel'
+		
 		self.tvAreas.set_model(self.model)
+		
 		self.isImage = ImageSpace(model=self.model, color=8, rect=7)
 		self.swImage.add_with_viewport(self.isImage)
-		self.swImage.exist_image = 'image'
-		self.swImage.no_exist_image = 'gtk-cancel'
 		
 		self.crpExists = gtk.CellRendererPixbuf()
 		self.crtFilename = gtk.CellRendererText()
 		self.crtColor = gtk.CellRendererText()
 		self.crtColor.set_property('background-set', True)
-		self.crtColor.set_property('text', ' '*8)
+		self.crtColor.set_property('text', ' ')
 		
-		self.tvcMain = gtk.TreeViewColumn()
-		self.tvcMain.pack_start(self.crpExists, False)
-		self.tvcMain.set_attributes(self.crpExists, icon_name=10)
-		self.tvcMain.pack_start(self.crtFilename, True)
-		self.tvcMain.set_attributes(self.crtFilename, text=2)
-		self.tvcMain.pack_start(self.crtColor, False)
-		self.tvcMain.set_attributes(self.crtColor, background_gdk=4)
+		self.tvcFile = gtk.TreeViewColumn()
+		self.tvcFile.set_sizing(gtk.TREE_VIEW_COLUMN_AUTOSIZE)
+		self.tvcFile.pack_start(self.crpExists, False)
+		self.tvcFile.set_attributes(self.crpExists, icon_name=10)
+		self.tvcFile.pack_start(self.crtFilename, True)
+		self.tvcFile.set_attributes(self.crtFilename, text=2)
+		self.tvcColor = gtk.TreeViewColumn()
+		self.tvcColor.set_sizing(gtk.TREE_VIEW_COLUMN_AUTOSIZE)
+		self.tvcColor.pack_start(self.crtColor, True)
+		self.tvcColor.set_attributes(self.crtColor, background_gdk=8)
 		
-		self.tvAreas.append_column(self.tvcMain)
+		self.tvAreas.append_column(self.tvcFile)
+		self.tvAreas.append_column(self.tvcColor)
 		self.tvAreas.set_headers_visible(False)
+		#self.tvAreas.set_tooltip_column(11) Causes segfaults
 	
 	def present(self):
 		self.wCropper.show_all()

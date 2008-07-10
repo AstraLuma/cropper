@@ -20,6 +20,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	 8. color (rw, linked)
 	 9. exists (ro, generated)
 	 10. exists_img (ro, generated)
+	 11. tooltip (ro, generated)
 	"""
 	__gtype_name__ = 'BoxListStore'
 	__gproperties__ = {
@@ -34,14 +35,14 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		           None,
 		           gobject.PARAM_READWRITE),
 		}
-	_LEN = 11
+	_LEN = 12
 	_exist_image = _no_exist_image = None
-	_ro_columns = 2,9,10
+	_ro_columns = 2,9,10,11
 	_col_types = (
 			str, Box, # True, staight-up columns
 			str, # Display name
 			int, int, int, int, gdk.Rectangle, gdk.Color, # Linked columns
-			bool, str, # Purely-generated columns
+			bool, str, unicode, # Purely-generated columns
 			)
 	__data = {} # { id(Box) : (fn, Box, displayfn, connect), }
 	__order = [] # [ id(Box), ]
@@ -143,6 +144,8 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	
 	def on_get_value(self, ref, column):
 		if 0 <= column < 3:
+			if column == 2:
+				return unicode(self.__data[ref][column])
 			return self.__data[ref][column]
 		elif 3 <= column < 9: # Linked
 			box = self.__data[ref][1]
@@ -163,6 +166,8 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 			return self._fileexists(ref)
 		elif column == 10: # Generated
 			return self._exist_image if self._fileexists(ref) else self._no_exist_image
+		elif column == 11: # Generated
+			return self.__data[ref][1].dimensions_text()
 		else:
 			raise IndexError
 	

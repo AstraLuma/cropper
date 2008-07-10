@@ -114,8 +114,6 @@ class GladeWindow(object):
 				setattr(self, r, w)
 				self.__listWidgets(w) # Initialize all the props
 		else:
-			print 'GladeWindow.__listWidgets() substitute'
-			print self._xml.get_widget_prefix('')
 			for w in self._xml.get_widget_prefix(''):
 				n = gtk.glade.get_widget_name(w)
 				if n is None: 
