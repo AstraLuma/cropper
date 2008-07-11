@@ -89,8 +89,9 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def _createrow(self, fn=None, box=None):
 		rv = [None]*4
 		if fn is not None:
-			rv[0] = self._abspath(fn)
-			rv[2] = fn
+			fn = os.path.abspath(fn)
+			rv[0] = fn
+			rv[2] = gobject.filename_display_basename(fn)
 		else:
 			rv[0] = rv[2] = ''
 		rv[1] = Box()

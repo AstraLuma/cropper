@@ -18,7 +18,7 @@ from boxmodel import BoxListStore
 from imagespace import ImageSpace
 from actor import Actor, action
 from optparse import OptionParser
-
+import sys, os, subprocess
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
 #                  help="write report to FILE", metavar="FILE")
@@ -46,6 +46,7 @@ def permIter(seq):
 
 class Cropper(GladeWindow, Actor):
 	window = property(lambda self: self.wCropper)
+	filename = None
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
 		self.model = BoxListStore()
@@ -55,6 +56,7 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.set_model(self.model)
 		
 		self.isImage = ImageSpace(model=self.model, box=1)
+		self.isImage.mode = ImageSpace.INSERT
 		self.isImage.next_color = gtk.gdk.color_parse('#A0F')
 		self.isImage.connect('box-added', self.on_box_added)
 #		self.isImage.connect('insert-box-changed', self.on_insert_box_changed)
@@ -98,7 +100,10 @@ class Cropper(GladeWindow, Actor):
 	
 	def get_next_filename(self):
 		# TODO: When we have the filename, turn it into a conglamoratation
-		return 'test.%i.gif' % len(self.model)
+		if self.filename is None:
+			return ''
+		before, after = os.path.splitext(self.filename)
+		return '%s.%i%s' % (before, len(self.model), after)
 	
 	_color_iter = None
 	def get_next_color(self, color):
@@ -182,7 +187,7 @@ class Cropper(GladeWindow, Actor):
 	</toolbar>
 </ui>
 """
-	
+	# :p menus
 	@action(stock='cropper-file', image=None, label='_File')
 	def File(self): pass
 	@action(stock='cropper-edit', image=None, label='_Edit')
@@ -196,74 +201,100 @@ class Cropper(GladeWindow, Actor):
 	def Open(self, filename=None):
 		print 'Open'
 		if filename is None:
-			# display dialog
-			pass
+			dlg = gtk.FileChooserDialog(parent=self.wCropper,
+				action=gtk.FILE_CHOOSER_ACTION_OPEN, 
+				buttons=(
+					gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+					gtk.STOCK_OPEN, gtk.RESPONSE_OK,
+					)
+				)
+			dlg.set_use_preview_label(True)
+			dlg.set_select_multiple(False)
+			dlg.set_local_only(True) #TODO: Allow for anything
+			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
+				dlg.destroy()
+				return
+			filename = dlg.get_filename()
+			dlg.destroy()
 		# Open image
+		self.filename = filename
+		#TODO: Use gtk.gdk.PixbufLoader
+		self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
 		print 'Crop'
-		pass
+		cmd_start = ['convert', self.filename]
+		#FIXME: Ask if there's conflicts
+		for fn, box in ((r[0],r[1]) for r in self.model):
+			r= box.rect
+			cmd = cmd_start+['-crop', '%ix%i+%i+%i' % (r.width, r.height, r.x, r.y), fn]
+			try:
+				subprocess.check_call(cmd)
+			except:
+				print >> sys.stderr, "Error executing command %r:" % cmd
+				import traceback
+				traceback.print_exc()
+		#FIXME: Update model
 	
 	@action(stock='gtk-quit')
 	def Quit(self):
-		print 'Quit'
-		pass
+		self.wCropper.destroy()
 	
 	@action(stock='gtk-clear')
 	def Clear(self):
 		print 'Clear'
-		pass
+		self.model.clear()
 	
-	@action(stock='gtk-cut')
+	@action(stock='gtk-cut', enabled=False)
 	def Cut(self):
 		print 'Cut'
 		pass
 	
-	@action(stock='gtk-copy')
+	@action(stock='gtk-copy', enabled=False)
 	def Copy(self):
 		print 'Copy'
 		pass
 	
-	@action(stock='gtk-paste')
+	@action(stock='gtk-paste', enabled=False)
 	def Paste(self):
 		print 'Paste'
 		pass
 	
-	@action(stock='gtk-delete')
+	@action(stock='gtk-delete', enabled=False)
 	def Delete(self):
 		print 'Delete'
 		pass
 	
-	@action(stock='gtk-select-all')
+	@action(stock='gtk-select-all', enabled=False)
 	def SelectAll(self):
 		pass
 	
-	@action(stock='gtk-zoom-in')
+	@action(stock='gtk-zoom-in', enabled=False)
 	def ZoomIn(self):
 		pass
 	
-	@action(stock='gtk-zoom-out')
+	@action(stock='gtk-zoom-out', enabled=False)
 	def ZoomOut(self):
 		pass
 	
 	@action(stock='gtk-zoom-100')
 	def ZoomNormal(self):
-		pass
+		self.isImage.zoom = 1.0
 	
 	@action(stock='gtk-zoom-fit')
 	def ZoomFit(self):
-		pass
+		self.isImage.zoom_to_size()
 	
-	@action(stock='cropper-flip-horizontal', theme='object-flip-horizontal', label='Flip _Horizontal')
+	@action(stock='cropper-flip-horizontal', theme='object-flip-horizontal', label='Flip _Horizontal', enabled=False)
 	def FlipHorizontal(self):
 		pass
 	
-	@action(stock='cropper-flip-vertical', theme='object-flip-vertical', label='Flip _Vertical')
+	@action(stock='cropper-flip-vertical', theme='object-flip-vertical', label='Flip _Vertical', enabled=False)
 	def FlipVertical(self):
 		pass
 	
-	@action(stock='cropper-rotate-right', theme='object-rotate-right', label='Rotate Clockwise', shortlabel='Right')
+	@action(stock='cropper-rotate-right', theme='object-rotate-right', label='Rotate Clockwise', shortlabel='Right', enabled=False)
 	def RotateCW(self):
 		pass
 	
@@ -271,33 +302,35 @@ class Cropper(GladeWindow, Actor):
 	def RotateCCW(self):
 		pass
 	
-	@action(stock='gtk-preferences')
+	@action(stock='gtk-preferences', enabled=False)
 	def EditPreferences(self):
 		pass
 	
-#	@action(stock='cropper-auto-shrink', label='Auto Shrink')
-#	def AutoShrink(self):
-#		pass
+	@action(stock='cropper-auto-shrink', image=None, label='Auto Shrink', enabled=False)
+	def AutoShrink(self):
+		pass
 	
 	@action(stock='gtk-about')
 	def About(self):
 		dlg = gtk.AboutDialog()
 		props = {
-			'version': """$Revision$""",
+#			'version': """$Revision$""",
 			'name': 'cropper',
+			'logo-icon-name': 'image',
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
 			'copyright': u'\N{COPYRIGHT SIGN} 2008 James Bliss',
+			'website': 'http://www.astro73.com/'
 			}
 		for k,v in props.iteritems():
 			dlg.set_property(k,v)
 		dlg.run()
 		dlg.destroy()
 	
-	@action(stock='gtk-add', radiogroup='editmode')
+	@action(stock='gtk-add', radiogroup='editmode', active=True)
 	def Add(self):
 		self.isImage.mode = ImageSpace.INSERT
 	
-	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', active=True)
+	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', enabled=False)
 	def Select(self):
 		self.isImage.mode = ImageSpace.SELECT
 
@@ -310,8 +343,8 @@ if __name__ == '__main__':
 #	app.add_box('test3.gif', (273, 37,204,712), '#0AF')
 #	app.add_box('test4.gif', ( 18,622,470,124), '#0F0')
 #	app.add_box('test5.gif', ( 11, 20,178,722), '#00F')
-	app.isImage.image=gtk.gdk.pixbuf_new_from_file('test.gif')
-	app.isImage.mode = ImageSpace.INSERT
+#	app.isImage.image = gtk.gdk.pixbuf_new_from_file('test.gif')
+#	app.isImage.mode = ImageSpace.INSERT
 	
 	app.wCropper.set_default_size(700, 1000)
 	

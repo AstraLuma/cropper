@@ -609,7 +609,6 @@ class ImageSpace(gtk.Widget):
 				self.emit('insert-box-changed', self._temporary_box)
 	
 	def do_button_press_event(self, event):
-		print 'do_button_press_event',self, event
 		# make sure it was the first button
 		if event.button == 1:
 			if self._mode == self.INSERT:

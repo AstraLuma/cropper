@@ -12,7 +12,8 @@ _iconfactory = None
 
 #TODO: Use gtk.Action
 def action(label=None, stock=None, tooltip=None, group=None, accel=None, 
-		shortlabel=None, radiogroup=None, toggle=None, active=None, **kw):
+		shortlabel=None, radiogroup=None, toggle=None, active=None, 
+		enabled=None, **kw):
 	"""action(...) -> callable(method) -> method
 	Registers the method as an action.
 	"""
@@ -84,6 +85,7 @@ def action(label=None, stock=None, tooltip=None, group=None, accel=None,
 		method.act_radiogroup = radiogroup
 		method.act_toggle = toggle
 		method.act_active = active
+		method.act_enabled = enabled
 		return method
 	return _
 
@@ -132,7 +134,8 @@ class Actor(object):
 					grp.append(act)
 				if v.act_active is not None:
 					act.set_active(v.act_active)
-				
+				if v.act_enabled is not None:
+					act.set_sensitive(v.act_enabled)
 				group = self.actiongroups.setdefault(v.act_group, gtk.ActionGroup(v.act_group))
 				group.add_action_with_accel(act, v.act_accel)
 				
