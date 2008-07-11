@@ -283,7 +283,7 @@ class Cropper(GladeWindow, Actor):
 	def About(self):
 		dlg = gtk.AboutDialog()
 		props = {
-			#'version': """$Revision$""",
+			'version': """$Revision$""",
 			'name': 'cropper',
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
 			'copyright': u'\N{COPYRIGHT SIGN} 2008 James Bliss',
