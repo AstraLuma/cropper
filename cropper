@@ -66,6 +66,15 @@ class Cropper(GladeWindow, Actor):
 		self.wCropper.show_all()
 		self.wCropper.present()
 	
+	def add_box(self, fn, box, color=None):
+		if color is not None:
+			if isinstance(color, basestring):
+				color = gtk.gdk.color_parse(color)
+			if not isinstance(box, gtk.gdk.Rectangle):
+				box = gtk.gdk.Rectangle(*box)
+			box = Box(box, color)
+		self.model.append([fn, box])
+	
 	# Actions/UI stuff
 	@action(stock='open')
 	def Open(self, filename=None):
@@ -150,16 +159,18 @@ if __name__ == '__main__':
 	options, args = parser.parse_args()
 	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
 	
-	app.model.insert(0, ['test1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
-	app.model.insert(0, ['test2.gif', Box(gtk.gdk.Rectangle( 50,100,200,300), gtk.gdk.color_parse('#AF0'))])
-	app.model.insert(0, ['test3.gif', Box(gtk.gdk.Rectangle(225,375,300,400), gtk.gdk.color_parse('#0AF'))])
+	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
+	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')
+	app.add_box('test3.gif', (273, 37,204,712), '#0AF')
+	app.add_box('test4.gif', ( 18,622,470,124), '#0F0')
+	app.add_box('test5.gif', ( 11, 20,178,722), '#00F')
 	app.isImage.image=gtk.gdk.pixbuf_new_from_file('test.gif')
+	app.isImage.mode = ImageSpace.INSERT
 	
 	app.wCropper.set_default_size(700, 1000)
 	
 	# Run
 	app.present()
-	print "#11", app.model.get_value(app.model.get_iter_first(), 11)
 	print "Model data:", map(tuple, app.model)
 	gtk.gdk.set_show_events(True)
 	gtk.main()

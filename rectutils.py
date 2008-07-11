@@ -7,7 +7,11 @@ Some utilities for dealing with rectangles
 from __future__ import division, absolute_import, with_statement
 import gtk
 __all__ = ('rect_contains', 'slice_diff', 'slice_len', 'slice_contains', 
-	'slice_diff_max', 'rect_diff')
+	'slice_diff_max', 'rect_diff', 'pt2rect', 'frect')
+
+def frect(x,y,w,h):
+	_ = lambda n: int(round(n))
+	return gtk.gdk.Rectangle(_(x), _(y), _(w), _(h))
 
 def rect_contains(rect, x,y):
 	"""rect_contains(gtk.gdk.Rectangle, number, number) -> bool
@@ -112,11 +116,23 @@ def rect_diff(rect1, rect2, preferred=None):
 		# rect1 subset of rect2
 		rv = None
 	elif dx is None:
-		rv = gtk.gdk.Rectangle(rect1.x, dy.start, rect1.width, dy.stop - dy.start)
+		rv = frect(rect1.x, dy.start, rect1.width, dy.stop - dy.start)
 	elif dy is None:
-		rv = gtk.gdk.Rectangle(dx.start, rect1.y, dx.stop - dx.start, rect1.height)
+		rv = frect(dx.start, rect1.y, dx.stop - dx.start, rect1.height)
 	else:
-		rv = gtk.gdk.Rectangle(dx.start, dy.start, dx.stop - dx.start, dy.stop - dy.start)
+		rv = frect(dx.start, dy.start, dx.stop - dx.start, dy.stop - dy.start)
 #	print 'rect_diff: %r - %r (%r,%r)= %r' % (tuple(rect1), tuple(rect2), px,py, 'None' if rv is None else tuple(rv))
 	return rv
 
+def pt2rect(*pargs):
+	"""
+	Takes a series of 2-tuples and creates a rect from them.
+	"""
+	# zip() utterly fails
+	x = [c[0] for c in pargs]
+	y = [c[1] for c in pargs]
+	sx = min(*x)
+	sy = min(*y)
+	ex = max(*x)
+	ey = max(*y)
+	return frect(sx, sy, ex-sx, ey-sy)

@@ -116,13 +116,20 @@ class Box(gobject.GObject):
 		#del self._rect_nid
 		pass
 	
+	def __repr__(self):
+		return "<%s rect=(%i,%i, %i,%i) color=(0x%X, 0x%X, 0x%X)>" % (
+			type(self).__name__, 
+			self._rect.x, self._rect.y, self._rect.width, self._rect.height,
+			self._color.red, self._color.green, self._color.blue
+			)
+	
 	def dimensions_text(self):
 		r = self._rect
 		return u'%i,%i\u2192%i,%i (%i\u2A2F%i)' % (r.x, r.y, r.x+r.width, r.y+r.height, r.width, r.height)
 	
-#	def _color_notify(self,obj,prop):
-#		if obj is self._color and prop.name in ('pixel','red','green','blue'):
-#			self.emit('notify::'+prop.name, prop)
+	def _color_notify(self,obj,prop):
+		if obj is self._color and prop.name in ('pixel','red','green','blue'):
+			self.emit('notify::'+prop.name, prop)
 #	def _connect_color(self, color):
 #		self._color_nid = color.connect('notify', self._color_notify)
 #	def _disconnect_color(self, color):

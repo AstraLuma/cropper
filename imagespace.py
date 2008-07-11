@@ -9,6 +9,7 @@ from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys, cairo
 from glade import CustomWidget
 from rectutils import *
+from box import Box
 
 __all__ = 'ImageSpace',
 
@@ -114,10 +115,15 @@ class ImageSpace(gtk.Widget):
 	"""
 	# Constants
 	SELECT, INSERT = MODES = range(2)
-	__gsignals__ = { 'realize': 'override',
-	                 'expose-event' : 'override',
-	                 'size-allocate': 'override',
-	                 'size-request' : 'override',}
+	__gsignals__ = {
+		'box-added'    : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
+		'insert-box-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
+		'realize'      : 'override',
+		'expose-event' : 'override',
+		'size-allocate': 'override',
+		'size-request' : 'override',
+#		'query-tooltip': 'override',
+		}
 	__gproperties__ = {
 		'zoom' : (gobject.TYPE_DOUBLE,
 		           'view zoom',
@@ -180,8 +186,10 @@ class ImageSpace(gtk.Widget):
 	
 	_image = _zoom = _mode = _alpha = _model = _color_col = _rect_col = _next_color = None
 	
+	_insert_start_coords = None
 	_temporary_box = None # Used for adding boxes
 	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
+	_model_listeners = None
 	
 	def __init__(self, image=None, model=None, box=1):
 #		print "__init__", self, image, model, color, rect
@@ -208,11 +216,30 @@ class ImageSpace(gtk.Widget):
 				self._mode = value
 			else:
 				raise ValueError, 'mode must be one of %s' % self.MODES
+		elif property.name == 'model':
+			if self._model is not None:
+				self._disconnect_model(self._model)
+			self._model = value
+			if value is not None:
+				self._connect_model(value)
+			if self.flags() & gtk.REALIZED:
+				self.queue_draw()
 		elif hasattr(self, '_'+property.name):
 			setattr(self, '_'+property.name, value)
 			self._update()
 		else:
 			raise AttributeError, 'unknown property %s' % property.name		
+	
+	def _connect_model(self, model):
+		self._model_listeners = (
+			model.connect('row-changed', self._model_changed),
+			model.connect('row-deleted', self._model_changed),
+			model.connect('row-inserted', self._model_changed),
+			)
+	def _disconnect_model(self, model):
+		for l in self._model_listeners:
+			model.disconnect(l)
+		self._model_listeners = ()
 	
 	def do_realize(self):
 		# The do_realize method is responsible for creating GDK (windowing system)
@@ -232,7 +259,8 @@ class ImageSpace(gtk.Widget):
 			window_type=gtk.gdk.WINDOW_CHILD,
 			wclass=gtk.gdk.INPUT_OUTPUT,
 			event_mask=self.get_events() | gtk.gdk.EXPOSURE_MASK
-			         | gtk.gdk.BUTTON1_MOTION_MASK | gtk.gdk.BUTTON_PRESS_MASK
+			         | gtk.gdk.BUTTON1_MOTION_MASK
+			         | gtk.gdk.BUTTON_PRESS_MASK | gtk.gdk.BUTTON_RELEASE_MASK
 			         | gtk.gdk.POINTER_MOTION_MASK
 			         | gtk.gdk.POINTER_MOTION_HINT_MASK)
 		
@@ -258,7 +286,6 @@ class ImageSpace(gtk.Widget):
 		except AttributeError:
 			self.cr = None
 		self.set_tooltip_text('spam&eggs')
-
 	
 	def do_unrealize(self):
         # The do_unrealized method is responsible for freeing the GDK resources
@@ -450,20 +477,36 @@ class ImageSpace(gtk.Widget):
 			y += self._image.get_height() * self._zoom / 2
 		return x,y
 	
+	def rect2img(self, rect):
+		x,y = self.widget2imgcoords(rect.x, rect.y)
+		w = rect.width * self._zoom
+		h = rect.height * self._zoom
+		return frect(x,y,w,h)
+	
+	def rect2widget(self, rect):
+		x,y = self.img2widgetcoords(rect.x, rect.y)
+		w = rect.width / self._zoom
+		h = rect.height / self._zoom
+		return frect(x,y,w,h)
+	
 	def alloc2img(self):
 		"""is.alloc2img() -> Rectangle
 		Translates allocation to the images coordinates.
 		"""
-		x,y = self.widget2imgcoords(self.allocation.x, self.allocation.y)
-		w = self.allocation.width * self._zoom
-		h = self.allocation.height * self._zoom
-		return gtk.gdk.Rectangle(x,y,w,h)
+		return self.rect2img(self.allocation)
 	
 	def find_boxes_under_coord(self,x,y):
 		"""is.find_boxes_under_coord(num,num) -> [Box]
 		Returns all of the boxes underneath image location (x,y).
 		"""
 		return tuple(r[self._box_col] for r in self._model if rect_contains(r[self._box_col].rect,x,y))
+	
+	def _model_changed(self, model, path, iter=None):
+		if not self.flags() & gtk.REALIZED: return
+		if iter is not None:
+			self.invalidate_rect(self.rect2widget(self._model.get(iter, self._box_col)[0].rect), True)
+		else:
+			self.invalidate_rect(self.allocation, True)
 	
 	_boxes_under_cursor = None
 	
@@ -475,7 +518,7 @@ class ImageSpace(gtk.Widget):
 	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
 		# If widget wasn't passed as self
 		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
-#		print 'do_query_tooltip_event',self, x,y, keyboard_mode, tooltip
+		print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
 		ix,iy = self.widget2imgcoords(x,y)
 		boxes = self.find_boxes_under_coord(ix,iy)
 		if len(boxes) == 0:
@@ -547,14 +590,20 @@ class ImageSpace(gtk.Widget):
 			state = event.state
 		
 		# Update box underneath cursor, for tooltip
-		if self._update_boxes(*self.widget2imgcoords(x,y)):
+		icoords = self.widget2imgcoords(x,y)
+		if self._update_boxes(*icoords):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
 		
 		if self._mode == self.INSERT:
-			if (state & gtk.gdk.BUTTON1_MASK):
+			if (state & gtk.gdk.BUTTON1_MASK) and self._insert_start_coords is not None:
 				# Adjust temporary box
-				pass
+				nr = pt2rect(icoords, self._insert_start_coords)
+				redraw = nr.union(self._temporary_box.rect)
+				self._temporary_box.rect = nr
+				#self.queue_draw_area(*redraw)
+				self.queue_draw()
+				self.emit('insert-box-changed', self._temporary_box)
 	
 	def do_button_press_event(self, event):
 		print 'do_button_press_event',self, event
@@ -562,20 +611,27 @@ class ImageSpace(gtk.Widget):
 		if event.button == 1:
 			if self._mode == self.INSERT:
 				# Begin new box
-				pass
+				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
+				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self._next_color)
+				self.emit('insert-box-changed', self._temporary_box)
 			else:
 				# Change selection
 				pass
 		return True
 	
 	def do_button_release_event(self, event):
-		print 'do_button_release_event',self, event
 		# make sure it was the first button
 		if event.button == 1:
 			if self._mode == self.INSERT:
-				# End box
-				pass
+				# End new box
+				nb = self._temporary_box
+				self._insert_start_coords = self._temporary_box = None
+				self.queue_draw_area(*nb.rect)
+				self.emit('box-added', nb)
 		return True
+	
+	def do_box_added(self, box):
+		print "box-added", self, box
 CustomWidget(ImageSpace)
 
 if __name__ == "__main__":
