@@ -125,7 +125,7 @@ class Box(gobject.GObject):
 	
 	def dimensions_text(self):
 		r = self._rect
-		return u'%i,%i\u2192%i,%i (%i\u2A2F%i)' % (r.x, r.y, r.x+r.width, r.y+r.height, r.width, r.height)
+		return u'%i,%i\N{RIGHTWARDS ARROW}%i,%i (%i\N{VECTOR OR CROSS PRODUCT}%i)' % (r.x, r.y, r.x+r.width, r.y+r.height, r.width, r.height)
 	
 	def _color_notify(self,obj,prop):
 		if obj is self._color and prop.name in ('pixel','red','green','blue'):

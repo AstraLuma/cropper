@@ -546,6 +546,7 @@ class ImageSpace(gtk.Widget):
 			return True
 		
 		if self._changed_rect is None or not rect_contains(self._changed_rect, x, y):
+			if len(self._model) == 0: return False
 			# The mouse left the common area
 #			print '(%i,%i)' % (x,y),
 			

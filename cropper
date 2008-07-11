@@ -5,7 +5,6 @@ cropper [file]
 
 An app to easily crop an image into multiple pieces.
 """
-
 from __future__ import with_statement, division, absolute_import
 import pygtk
 pygtk.require('2.0')
@@ -46,6 +45,7 @@ def permIter(seq):
 
 
 class Cropper(GladeWindow, Actor):
+	window = property(lambda self: self.wCropper)
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
 		self.model = BoxListStore()
@@ -83,6 +83,7 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.set_tooltip_column(11)
 	
 	def present(self):
+		self.preshow()
 		self.wCropper.show_all()
 		self.wCropper.present()
 	
@@ -118,8 +119,82 @@ class Cropper(GladeWindow, Actor):
 		self.isImage.next_color = self.get_next_color(self.isImage.next_color)
 	
 	# Actions/UI stuff
-	@action(stock='open')
+	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
+	def add_menubar(self, menubar):
+		props = self.vbContent.child_get(self.mbMenu, *self.PROPS)
+		self.vbContent.remove(self.mbMenu)
+		self.mbMenu = menubar
+		params = []
+		for k,v in zip(self.PROPS, props):
+			params += [k,v]
+		self.vbContent.add_with_properties(self.mbMenu, *params)
+	
+	def add_toolbar(self, toolbar):
+		props = self.vbContent.child_get(self.tbTools, *self.PROPS)
+		self.vbContent.remove(self.tbTools)
+		self.tbTools = toolbar
+		params = []
+		for k,v in zip(self.PROPS, props):
+			params += [k,v]
+		self.vbContent.add_with_properties(self.tbTools, *params)
+
+	__ui__ = """
+<ui>
+	<menubar>
+		<menu action="File">
+			<menuitem action="Open" />
+			<menuitem action="Crop" />
+			<separator/>
+			<menuitem action="Quit" />
+		</menu>
+		<menu action="Edit">
+			<!--menuitem action="Undo"/>
+			<menuitem action="Redo"/-->
+			<separator />
+			<menuitem action="Cut"/>
+			<menuitem action="Copy"/>
+			<menuitem action="Paste"/>
+			<menuitem action="Delete"/>
+			<menuitem action="Clear"/>
+			<separator />
+			<menuitem action="EditPreferences"/>
+		</menu>
+		<menu action="View">
+			<menuitem action="ZoomIn" />
+			<menuitem action="ZoomOut" />
+			<menuitem action="ZoomNormal" />
+			<menuitem action="ZoomFit" />
+		</menu>
+		<menu action="Help">
+			<menuitem action="About" />
+		</menu>
+	</menubar>
+	<toolbar action="toolbar">
+		<toolitem action="Open"/>
+		<toolitem action="Crop"/>
+		<separator/>
+		<toolitem action="Delete"/>
+		<toolitem action="Clear"/>
+		<separator/>
+		<separator/>
+		<toolitem action="Add"/>
+		<toolitem action="Select"/>
+	</toolbar>
+</ui>
+"""
+	
+	@action(stock='cropper-file', image=None, label='_File')
+	def File(self): pass
+	@action(stock='cropper-edit', image=None, label='_Edit')
+	def Edit(self): pass
+	@action(stock='cropper-view', image=None, label='_View')
+	def View(self): pass
+	@action(stock='cropper-help', image=None, label='_Help')
+	def Help(self): pass
+	
+	@action(stock='gtk-open')
 	def Open(self, filename=None):
+		print 'Open'
 		if filename is None:
 			# display dialog
 			pass
@@ -127,26 +202,37 @@ class Cropper(GladeWindow, Actor):
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
+		print 'Crop'
+		pass
+	
+	@action(stock='gtk-quit')
+	def Quit(self):
+		print 'Quit'
 		pass
 	
 	@action(stock='gtk-clear')
 	def Clear(self):
+		print 'Clear'
 		pass
 	
 	@action(stock='gtk-cut')
 	def Cut(self):
+		print 'Cut'
 		pass
 	
 	@action(stock='gtk-copy')
 	def Copy(self):
+		print 'Copy'
 		pass
 	
 	@action(stock='gtk-paste')
 	def Paste(self):
+		print 'Paste'
 		pass
 	
 	@action(stock='gtk-delete')
 	def Delete(self):
+		print 'Delete'
 		pass
 	
 	@action(stock='gtk-select-all')
@@ -158,7 +244,7 @@ class Cropper(GladeWindow, Actor):
 		pass
 	
 	@action(stock='gtk-zoom-out')
-	def zoomout(self):
+	def ZoomOut(self):
 		pass
 	
 	@action(stock='gtk-zoom-100')
@@ -189,9 +275,31 @@ class Cropper(GladeWindow, Actor):
 	def EditPreferences(self):
 		pass
 	
-	@action()
-	def AutoShrink(self):
-		pass
+#	@action(stock='cropper-auto-shrink', label='Auto Shrink')
+#	def AutoShrink(self):
+#		pass
+	
+	@action(stock='gtk-about')
+	def About(self):
+		dlg = gtk.AboutDialog()
+		props = {
+			#'version': """$Revision$""",
+			'name': 'cropper',
+			'authors': ['James Bliss <james.bliss@astro73.com>'],
+			'copyright': u'\N{COPYRIGHT SIGN} 2008 James Bliss',
+			}
+		for k,v in props.iteritems():
+			dlg.set_property(k,v)
+		dlg.run()
+		dlg.destroy()
+	
+	@action(stock='gtk-add', radiogroup='editmode')
+	def Add(self):
+		self.isImage.mode = ImageSpace.INSERT
+	
+	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', active=True)
+	def Select(self):
+		self.isImage.mode = ImageSpace.SELECT
 
 if __name__ == '__main__':
 	options, args = parser.parse_args()
