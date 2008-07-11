@@ -117,7 +117,7 @@ class ImageSpace(gtk.Widget):
 	SELECT, INSERT = MODES = range(2)
 	__gsignals__ = {
 		'box-added'    : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
-		'insert-box-changed': (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
+		'insert-box-changed': (gobject.SIGNAL_RUN_LAST|gobject.SIGNAL_ACTION, gobject.TYPE_NONE, (Box,)),
 		'realize'      : 'override',
 		'expose-event' : 'override',
 		'size-allocate': 'override',
@@ -158,14 +158,14 @@ class ImageSpace(gtk.Widget):
 		           'data model',
 		           'The model where boxes are pulled from.',
 		           gobject.PARAM_READWRITE),
-		'box_col' : (gobject.TYPE_UINT,
+		'box-col' : (gobject.TYPE_UINT,
 		           'color column',
 		           'The column to pull colors from.',
 		           0,
 		           sys.maxint,
 		           1,
 		           gobject.PARAM_READWRITE),
-		'next_color' : (gtk.gdk.Color,
+		'next-color' : (gtk.gdk.Color,
 		           'next color',
 		           'The color the next box will be.',
 		           gobject.PARAM_READWRITE),
@@ -205,12 +205,14 @@ class ImageSpace(gtk.Widget):
 		self._update()
 	
 	def do_get_property(self, property):
-		if hasattr(self, '_'+property.name):
-			return getattr(self, '_'+property.name)
+		name = property.name.replace('-', '_')
+		if hasattr(self, '_'+name):
+			return getattr(self, '_'+name)
 		else:
 			raise AttributeError, 'unknown property %s' % property.name
 	
 	def do_set_property(self, property, value):
+		name = property.name.replace('-', '_')
 		if property.name == 'mode':
 			if value in self.MODES:
 				self._mode = value
@@ -224,8 +226,8 @@ class ImageSpace(gtk.Widget):
 				self._connect_model(value)
 			if self.flags() & gtk.REALIZED:
 				self.queue_draw()
-		elif hasattr(self, '_'+property.name):
-			setattr(self, '_'+property.name, value)
+		elif hasattr(self, '_'+name):
+			setattr(self, '_'+name, value)
 			self._update()
 		else:
 			raise AttributeError, 'unknown property %s' % property.name		
@@ -612,12 +614,12 @@ class ImageSpace(gtk.Widget):
 			if self._mode == self.INSERT:
 				# Begin new box
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
-				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self._next_color)
+				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self._next_color.copy())
 				self.emit('insert-box-changed', self._temporary_box)
 			else:
 				# Change selection
 				pass
-		return True
+			return True
 	
 	def do_button_release_event(self, event):
 		# make sure it was the first button
@@ -626,9 +628,11 @@ class ImageSpace(gtk.Widget):
 				# End new box
 				nb = self._temporary_box
 				self._insert_start_coords = self._temporary_box = None
+				if nb.rect.width == 0 or nb.rect.height == 0: 
+					return
 				self.queue_draw_area(*nb.rect)
 				self.emit('box-added', nb)
-		return True
+				self._changed_rect = None
 	
 	def do_box_added(self, box):
 		print "box-added", self, box

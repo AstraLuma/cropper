@@ -27,6 +27,23 @@ parser = OptionParser()
 #                  action="store_false", dest="verbose", default=True,
 #                  help="don't print status messages to stdout")
 
+def permIter(seq):
+	"""
+	Given some sequence 'seq', returns an iterator that gives
+	all permutations of that sequence.
+	"""
+	# http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/105962
+	## Base case
+	if len(seq) == 1:
+		yield seq[0]
+	else:
+		## Inductive case
+		for i in range(len(seq)):
+			element_slice = seq[i:i+1]
+			rest_iter = permIter(seq[:i] + seq[i+1:])
+			for rest in rest_iter:
+				yield element_slice + rest
+
 
 class Cropper(GladeWindow, Actor):
 	def __init__(self, options, args, *pargs, **kwargs):
@@ -38,6 +55,9 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.set_model(self.model)
 		
 		self.isImage = ImageSpace(model=self.model, box=1)
+		self.isImage.next_color = gtk.gdk.color_parse('#A0F')
+		self.isImage.connect('box-added', self.on_box_added)
+#		self.isImage.connect('insert-box-changed', self.on_insert_box_changed)
 		self.swImage.add_with_viewport(self.isImage)
 		
 		self.crpExists = gtk.CellRendererPixbuf()
@@ -74,6 +94,28 @@ class Cropper(GladeWindow, Actor):
 				box = gtk.gdk.Rectangle(*box)
 			box = Box(box, color)
 		self.model.append([fn, box])
+	
+	def get_next_filename(self):
+		# TODO: When we have the filename, turn it into a conglamoratation
+		return 'test.%i.gif' % len(self.model)
+	
+	_color_iter = None
+	def get_next_color(self, color):
+		if self._color_iter is None:
+			self._color_iter = (gtk.gdk.color_parse('#'+p) for p in permIter('F0A'))
+		try:
+			return self._color_iter.next()
+		except StopIteration:
+			self._color_iter = None
+			return self.get_next_color(color)
+	
+	# Event handlers
+	def on_delete_event(self, widget, event):
+		gtk.main_quit()
+	
+	def on_box_added(self, widget, box):
+		self.model.append([self.get_next_filename(), box])
+		self.isImage.next_color = self.get_next_color(self.isImage.next_color)
 	
 	# Actions/UI stuff
 	@action(stock='open')
@@ -150,20 +192,16 @@ class Cropper(GladeWindow, Actor):
 	@action()
 	def AutoShrink(self):
 		pass
-	
-	# Event handlers
-	def on_delete_event(self, widget, event):
-		gtk.main_quit()
 
 if __name__ == '__main__':
 	options, args = parser.parse_args()
 	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
 	
-	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
-	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')
-	app.add_box('test3.gif', (273, 37,204,712), '#0AF')
-	app.add_box('test4.gif', ( 18,622,470,124), '#0F0')
-	app.add_box('test5.gif', ( 11, 20,178,722), '#00F')
+#	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
+#	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')
+#	app.add_box('test3.gif', (273, 37,204,712), '#0AF')
+#	app.add_box('test4.gif', ( 18,622,470,124), '#0F0')
+#	app.add_box('test5.gif', ( 11, 20,178,722), '#00F')
 	app.isImage.image=gtk.gdk.pixbuf_new_from_file('test.gif')
 	app.isImage.mode = ImageSpace.INSERT
 	
