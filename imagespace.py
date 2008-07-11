@@ -287,7 +287,7 @@ class ImageSpace(gtk.Widget):
 			self.cr = self.window.cairo_create()
 		except AttributeError:
 			self.cr = None
-		self.set_tooltip_text('spam&eggs')
+		#self.set_tooltip_text('spam&eggs')
 	
 	def do_unrealize(self):
         # The do_unrealized method is responsible for freeing the GDK resources

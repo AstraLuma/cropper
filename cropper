@@ -220,6 +220,7 @@ class Cropper(GladeWindow, Actor):
 		self.filename = filename
 		#TODO: Use gtk.gdk.PixbufLoader
 		self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
+		self.model.clear()
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
@@ -227,6 +228,7 @@ class Cropper(GladeWindow, Actor):
 		cmd_start = ['convert', self.filename]
 		#FIXME: Ask if there's conflicts
 		for fn, box in ((r[0],r[1]) for r in self.model):
+			#FIXME: Limit to image size
 			r= box.rect
 			cmd = cmd_start+['-crop', '%ix%i+%i+%i' % (r.width, r.height, r.x, r.y), fn]
 			try:
