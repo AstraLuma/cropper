@@ -4,165 +4,155 @@ doc string
 """
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys
+#from gobject.propertyhelper import property as gprop
+from usefulgprop import property as gprop
 
 __all__ = 'Box',
+
+def setattr_func(obj, *props):
+	value = props[-1]
+	props = props[:-1]
 
 class Box(gobject.GObject):
 	"""
 	Nearly identical to gtk.gdk.Rectangle, but also has a color associated with 
 	it.
 	"""
-	__gtype_name__ = 'Box'
-	__gproperties__ = {
-		'rect' : (gtk.gdk.Rectangle,
-		           'the space taken',
-		           'A gtk.gdk.Rectangle of the same size and position.',
-		           gobject.PARAM_READWRITE),
-		'color' : (gtk.gdk.Color,
-		           'the color',
-		           'The gtk.gdk.Color for the color.',
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		# Shortcuts
-		'width' : (gobject.TYPE_INT,
-		           'width of the box',
-		           'the width of the box in pixels',
-		           -sys.maxint - 1,
-		           sys.maxint,
-		           0,
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'height' : (gobject.TYPE_INT,
-		           'height of the box',
-		           'the height of the box in pixels',
-		           -sys.maxint - 1,
-		           sys.maxint,
-		           0,
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'x' : (gobject.TYPE_INT,
-		           '',
-		           '',
-		           -sys.maxint - 1,
-		           sys.maxint,
-		           0,
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'y' : (gobject.TYPE_INT,
-		           '',
-		           '',
-		           -sys.maxint - 1,
-		           sys.maxint,
-		           0,
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'pixel' : (gobject.TYPE_ULONG,
-		           '',
-		           '',
-		           0,
-		           0xFFFFFF,
-		           0,
-		           gobject.PARAM_READWRITE),
-		'red' : (gobject.TYPE_UINT,
-		           '',
-		           '',
-		           0,
-		           0xFFFF,
-		           0,
-		           gobject.PARAM_READWRITE),
-		'green' : (gobject.TYPE_UINT,
-		           '',
-		           '',
-		           0,
-		           0xFFFF,
-		           0,
-		           gobject.PARAM_READWRITE),
-		'blue' : (gobject.TYPE_UINT,
-		           '',
-		           '',
-		           0,
-		           0xFFFF,
-		           0,
-		           gobject.PARAM_READWRITE),
-		}
+	rect = gprop(
+		type=gtk.gdk.Rectangle,
+		nick='the space taken',
+		blurb='A gtk.gdk.Rectangle of the same size and position.',
+		flags=gobject.PARAM_READWRITE,
+#		default=gtk.gdk.Rectangle(),
+		)
+	color = gprop(
+		type=gtk.gdk.Color,
+		nick='the color',
+		blurb='The gtk.gdk.Color for the color.',
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE,
+#		default=gtk.gdk.Color(),
+		)
+	# Shortcuts
+	width = gprop(
+		type=gobject.TYPE_INT,
+		getter=(lambda self: self.rect.width),
+		setter=(lambda self, value: setattr(self.rect,'width', value) if self.rect else None),
+		nick='width of the box',
+		blurb='the width of the box in pixels',
+		default=0,
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	height = gprop(
+		type=gobject.TYPE_INT,
+		getter=(lambda self: self.rect.height),
+		setter=(lambda self, value: setattr(self.rect,'height', value) if self.rect else None),
+		nick='height of the box',
+		blurb='the height of the box in pixels',
+		default=0,
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	x = gprop(
+		type=gobject.TYPE_INT,
+		getter=(lambda self: self.rect.x),
+		setter=(lambda self, value: setattr(self.rect,'x', value) if self.rect else None),
+		nick='',
+		blurb='',
+		default=0,
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	y = gprop(
+		type=gobject.TYPE_INT,
+		getter=(lambda self: self.rect.y),
+		setter=(lambda self, value: setattr(self.rect,'y', value) if self.rect else None),
+		nick='',
+		blurb='',
+		default=0,
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	pixel = gprop(
+		type=gobject.TYPE_ULONG,
+		getter=(lambda self: self.color.pixel),
+		setter=(lambda self, value: setattr(self.color,'pixel', value) if self.color else None),
+		nick='',
+		blurb='',
+		minimum=0,
+		maximum=0xFFFFFF,
+		default=0,
+		flags=gobject.PARAM_READWRITE|gobject.PARAM_CONSTRUCT
+		)
+	red = gprop(
+		type=gobject.TYPE_UINT,
+		getter=(lambda self: self.color.red),
+		setter=(lambda self, value: setattr(self.color,'red', value) if self.color else None),
+		nick='',
+		blurb='',
+		minimum=0,
+		maximum=0xFFFF,
+		default=0,
+		flags=gobject.PARAM_READWRITE|gobject.PARAM_CONSTRUCT
+		)
+	green = gprop(
+		type=gobject.TYPE_UINT,
+		getter=(lambda self: self.color.green),
+		setter=(lambda self, value: setattr(self.color,'green', value) if self.color else None),
+		nick='',
+		blurb='',
+		minimum=0,
+		maximum=0xFFFF,
+		default=0,
+		flags=gobject.PARAM_READWRITE|gobject.PARAM_CONSTRUCT
+		)
+	blue = gprop(
+		type=gobject.TYPE_UINT,
+		getter=(lambda self: self.color.blue),
+		setter=(lambda self, value: setattr(self.color,'blue', value) if self.color else None),
+		nick='',
+		blurb='',
+		minimum=0,
+		maximum=0xFFFF,
+		default=0,
+		flags=gobject.PARAM_READWRITE|gobject.PARAM_CONSTRUCT
+		)
 	
-	prop = lambda name: property((lambda s: s.get_property(name)), (lambda s,v: s.set_property(name,v)))
-	
-	rect = prop('rect')
-	color = prop('color')
-	x = prop('x')
-	y = prop('y')
-	width = prop('width')
-	height = prop('height')
-	pixel = prop('pixel')
-	red = prop('red')
-	green = prop('green')
-	blue = prop('blue')
-	
-	del prop
-	
-	_rect = gtk.gdk.Rectangle()
-	_color = gtk.gdk.Color()
 	def __init__(self,rect=None,color=None):
 		gobject.GObject.__init__(self)
-		self._rect = gtk.gdk.Rectangle() 
-		if rect is not None: self._rect = rect
-		self._color = gtk.gdk.Color() 
-		if color is not None: self._color = color
+		self.rect = rect if rect is not None else gtk.gdk.Rectangle()
+		self.color = color if color is not None else gtk.gdk.Color()
 	
 	def _rect_notify(self,obj,prop):
-		if obj is self._rect and prop.name in ('x','y','width','height'):
+		if obj is self.rect and prop.name in ('x','y','width','height'):
 			self.emit('notify::'+prop.name, prop)
 	def _connect_rect(self, rect):
-		#self._rect_nid = rect.connect('notify', self._rect_notify)
+#		self.rect_nid = rect.connect('notify', self._rect_notify)
 		pass
 	def _disconnect_rect(self, rect):
-		#rect.disconnect(self._rect_nid)
-		#del self._rect_nid
+#		rect.disconnect(self._rect_nid)
+#		del self._rect_nid
+		pass
+	
+	def _color_notify(self,obj,prop):
+		if obj is self._color and prop.name in ('pixel','red','green','blue'):
+			self.emit('notify::'+prop.name, prop)
+	def _connect_color(self, color):
+#		self._color_nid = color.connect('notify', self._color_notify)
+		pass
+	def _disconnect_color(self, color):
+#		color.disconnect(self._color_nid)
+#		del self._color_nid
 		pass
 	
 	def __repr__(self):
 		return "<%s rect=(%i,%i, %i,%i) color=(0x%X, 0x%X, 0x%X)>" % (
 			type(self).__name__, 
-			self._rect.x, self._rect.y, self._rect.width, self._rect.height,
-			self._color.red, self._color.green, self._color.blue
+			self.rect.x, self.rect.y, self.rect.width, self.rect.height,
+			self.color.red, self.color.green, self.color.blue
 			)
 	
 	def dimensions_text(self):
-		r = self._rect
-		return u'%i,%i\N{RIGHTWARDS ARROW}%i,%i (%i\N{VECTOR OR CROSS PRODUCT}%i)' % (r.x, r.y, r.x+r.width, r.y+r.height, r.width, r.height)
-	
-	def _color_notify(self,obj,prop):
-		if obj is self._color and prop.name in ('pixel','red','green','blue'):
-			self.emit('notify::'+prop.name, prop)
-#	def _connect_color(self, color):
-#		self._color_nid = color.connect('notify', self._color_notify)
-#	def _disconnect_color(self, color):
-#		color.disconnect(self._color_nid)
-#		del self._color_nid
-	
-	def do_get_property(self, property):
-		if property.name == 'color':
-			return self._color
-		elif property.name == 'rect':
-			return self._rect
-		elif property.name in ('x','y','width','height'):
-			return getattr(self._rect, property.name)
-		elif property.name in ('pixel','red','green','blue'):
-			return getattr(self._color, property.name)
-		else:
-			raise AttributeError, 'unknown property %s' % property.name
-	
-	def do_set_property(self, property, value):
-		if property.name == 'color':
-			if self._color is not value:
-#				self._disconnect_color(self._color)
-				self._color = value
-#				self._connect_color(self._color)
-		elif property.name == 'rect':
-			if self._rect is not value:
-				self._disconnect_rect(self._rect)
-				self._rect = value
-				self._connect_rect(self._rect)
-		elif property.name in ('x','y','width','height'):
-			setattr(self._rect, property.name, value)
-		elif property.name in ('pixel','red','green','blue'):
-			setattr(self._color, property.name, value)
-		else:
-			raise AttributeError, 'unknown property %s' % property.name
-gobject.type_register(Box)
+		r = self.rect
+		return u'%i,%i\N{RIGHTWARDS ARROW}%i,%i (%i\N{VECTOR OR CROSS PRODUCT}%i)' % \
+			(r.x, r.y, r.x+r.width, r.y+r.height, r.width, r.height)
+
+#print dir(Box)
+#print Box.props, list(Box.props)
+#print Box.__gtype__, dir(Box.__gtype__), Box.__gtype__.fundamental

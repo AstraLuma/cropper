@@ -10,6 +10,8 @@ import gtk, gobject, sys, cairo
 from glade import CustomWidget
 from rectutils import *
 from box import Box
+#from gobject.propertyhelper import property as gprop
+from usefulgprop import property as gprop
 
 __all__ = 'ImageSpace',
 
@@ -107,6 +109,9 @@ def iconview_rubber_band(widget, rect, cr):
 
 	del fill_color_gdk
 
+class ImagSpace_Modes(gobject.GEnum):
+	pass
+
 class ImageSpace(gtk.Widget):
 	"""
 	Displays an image and allows the user to draw boxes over it.
@@ -124,67 +129,79 @@ class ImageSpace(gtk.Widget):
 		'size-request' : 'override',
 #		'query-tooltip': 'override',
 		}
-	__gproperties__ = {
-		'zoom' : (gobject.TYPE_DOUBLE,
-		           'view zoom',
-		           'the amount of zoom. 1.0 is normal',
-		           0.0,
-		           10.0, # A really big number
-		           1.0,
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'image' : (gtk.gdk.Pixbuf,
-		           'the image to draw',
-		           'the background image',
-		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-#		'overlap' : (gobject.TYPE_BOOLEAN,
-#		           'allow overlapping boxes',
-#		           'Should boxes be allowed to overlap?',
-#		           gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE),
-		'mode' : (gobject.TYPE_UINT,
-		           'current mode',
-		           'The current user interaction mode. either selecting or inserting.',
-		           min(MODES),
-		           max(MODES),
-		           SELECT,
-		           gobject.PARAM_READWRITE),
-		'alpha' : (gobject.TYPE_UINT,
-		           'current mode',
-		           'The current user interaction mode. either selecting or inserting.',
-		           0,
-		           255,
-		           64,
-		           gobject.PARAM_READWRITE),
-		'model' : (gobject.TYPE_OBJECT, #gtk.TreeModel,
-		           'data model',
-		           'The model where boxes are pulled from.',
-		           gobject.PARAM_READWRITE),
-		'box-col' : (gobject.TYPE_UINT,
-		           'color column',
-		           'The column to pull colors from.',
-		           0,
-		           sys.maxint,
-		           1,
-		           gobject.PARAM_READWRITE),
-		'next-color' : (gtk.gdk.Color,
-		           'next color',
-		           'The color the next box will be.',
-		           gobject.PARAM_READWRITE),
-		}
-	
-	prop = lambda name: property((lambda s: s.get_property(name)), (lambda s,v: s.set_property(name,v)))
-	
-	zoom = prop('zoom')
-	image = prop('image')
-	overlap = prop('overlap')
-	mode = prop('mode')
-	alpha = prop('alpha')
-	model = prop('model')
-	box_col = prop('box_col')
-	next_color = prop('next_color')
-	
-	del prop
-	
-	_image = _zoom = _mode = _alpha = _model = _color_col = _rect_col = _next_color = None
+	zoom = gprop(
+		type=gobject.TYPE_DOUBLE,
+		nick='view zoom',
+		blurb='the amount of zoom. 1.0 is normal',
+		minimum=0.0,
+		maximum=10.0, # A really big number
+		default=1.0,
+		flags=gobject.PARAM_READWRITE
+		)
+	image = gprop(
+		type=gtk.gdk.Pixbuf,
+		nick='the image to draw',
+		blurb='the background image',
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+#	overlap = gprop(
+#		type=gobject.TYPE_BOOLEAN,
+#		nick='allow overlapping boxes',
+#		blurb='Should boxes be allowed to overlap?',
+#		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+#		)
+	mode = gprop(
+		type=gobject.TYPE_UINT,
+		nick='current mode',
+		blurb='The current user interaction mode. either selecting or inserting.',
+		minimum=min(MODES),
+		maximum=max(MODES),
+		default=SELECT,
+		flags=gobject.PARAM_READWRITE
+		)
+	# This is a style property
+	alpha = gprop(
+		type=gobject.TYPE_UINT,
+		nick='alpha',
+		blurb='The alpha used when drawing the interrior of boxes.',
+		minimum=0,
+		maximum=255,
+		default=64,
+		flags=gobject.PARAM_READWRITE
+		)
+	def _get_model(self):
+			return type(self).model._default_getter(self)
+	def _set_model(self, value):
+			if self.model is not None:
+				self._disconnect_model(self.model)
+			type(self).model._default_setter(self, value)
+			if value is not None:
+				self._connect_model(value)
+			if self.flags() & gtk.REALIZED:
+				self.queue_draw()
+	model = gprop(
+		type=gobject.TYPE_OBJECT, #gtk.TreeModel,
+		getter=_get_model,
+		setter=_set_model,
+		nick='data model',
+		blurb='The model where boxes are pulled from.',
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	box_col = gprop(
+		type=gobject.TYPE_UINT,
+		nick='color column',
+		blurb='The column to pull colors from.',
+#		minimum=0,
+#		maximum=sys.maxint,
+		default=1,
+		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
+		)
+	next_color = gprop(
+		type=gtk.gdk.Color,
+		nick='next color',
+		blurb='The color the next box will be.',
+		flags=gobject.PARAM_READWRITE
+		)
 	
 	_insert_start_coords = None
 	_temporary_box = None # Used for adding boxes
@@ -194,43 +211,15 @@ class ImageSpace(gtk.Widget):
 	def __init__(self, image=None, model=None, box=1):
 #		print "__init__", self, image, model, color, rect
 		gtk.Widget.__init__(self)
-		self._image = image
-		self._zoom = 1.0
-		self._mode = self.SELECT
-		self._alpha = 127
-		self._model = model
-		self._box_col = box
-		self._next_color = gtk.gdk.color_parse('#0f0')
+		# Properties
+		self.image = image
+		self.model = model
+		self.box_col = box
+		self.next_color = gtk.gdk.color_parse('#0f0')
+		# Other attributes
 		self.cr = None
+		# other stuff
 		self._update()
-	
-	def do_get_property(self, property):
-		name = property.name.replace('-', '_')
-		if hasattr(self, '_'+name):
-			return getattr(self, '_'+name)
-		else:
-			raise AttributeError, 'unknown property %s' % property.name
-	
-	def do_set_property(self, property, value):
-		name = property.name.replace('-', '_')
-		if property.name == 'mode':
-			if value in self.MODES:
-				self._mode = value
-			else:
-				raise ValueError, 'mode must be one of %s' % self.MODES
-		elif property.name == 'model':
-			if self._model is not None:
-				self._disconnect_model(self._model)
-			self._model = value
-			if value is not None:
-				self._connect_model(value)
-			if self.flags() & gtk.REALIZED:
-				self.queue_draw()
-		elif hasattr(self, '_'+name):
-			setattr(self, '_'+name, value)
-			self._update()
-		else:
-			raise AttributeError, 'unknown property %s' % property.name		
 	
 	def _connect_model(self, model):
 		self._model_listeners = (
@@ -303,9 +292,9 @@ class ImageSpace(gtk.Widget):
 
 		# In this case, we say that we want to be as big as the
 		# text is, plus a little border around it.
-		if self._image is not None:
-			requisition.width = self._image.get_width() * self._zoom
-			requisition.height = self._image.get_height() * self._zoom
+		if self.image is not None:
+			requisition.width = self._image.get_width() * self.zoom
+			requisition.height = self._image.get_height() * self.zoom
 	
 	def do_size_allocate(self, allocation):
 		# The do_size_allocate is called by when the actual size is known
@@ -322,11 +311,11 @@ class ImageSpace(gtk.Widget):
 		"""is.zoome_to_size() -> None
 		Adjusts the zoom so the image fills the allocation.
 		"""
-		if self._image is None or self.allocation is None:
+		if self.image is None or self.allocation is None:
 			return
 		self.zoom = min(
-			self.allocation.width/self._image.get_width(),
-			self.allocation.height/self._image.get_height()
+			self.allocation.width/self.image.get_width(),
+			self.allocation.height/self.image.get_height()
 			)
 	
 	def do_expose_event(self, event):
@@ -343,11 +332,11 @@ class ImageSpace(gtk.Widget):
 			return self._expose_cairo(event)
 	
 	def _expose_gdk(self, event):
-		z = self._zoom
+		z = self.zoom
 		# Draw image
-		if self._image is not None:
+		if self.image is not None:
 			# Center
-			dx = (self.allocation.width - self._image.get_width()*z) // 2
+			dx = (self.allocation.width - self.image.get_width()*z) // 2
 			dy = 0
 			self.window.draw_pixbuf(self.gc, self._scaled,
 				0,0,
@@ -360,15 +349,15 @@ class ImageSpace(gtk.Widget):
 			box = model.get(row, self.box_col)
 			rect = box.rect
 			draw_alpha_rectangle_gdk(self.window, gc, box.color, True, 
-				rect.x*z, rect.y*z, (rect.width+1)*z, (rect.height+1)*z, self._alpha)
-		if self._model is not None:
-			self._model.foreach(draw_box, self)
+				rect.x*z, rect.y*z, (rect.width+1)*z, (rect.height+1)*z, self.alpha)
+		if self.model is not None:
+			self.model.foreach(draw_box, self)
 	
 	def _expose_cairo(self, event):
 		cr = self.cr
 		alloc = self.allocation
-		img = self._image
-		z = self._zoom
+		img = self.image
+		z = self.zoom
 		# Do some translation
 		if img is not None:
 			# Center
@@ -398,22 +387,22 @@ class ImageSpace(gtk.Widget):
 			cr.stroke()
 		def draw_box_fill(self, c, r):
 			# draw fill
-			if self._alpha > 0:
-				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self._alpha/0xFF)
+			if self.alpha > 0:
+				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
 				cr.rectangle(r)
 				cr.fill()
 		
 		boxes = []
 		def draw_box_row(model, path, row, self):
-			box, = model.get(row, self._box_col)
+			box, = model.get(row, int(self.box_col))
 			c = box.color
 			r = box.rect
 			r = gtk.gdk.Rectangle(*r)
 			r.width += 1
 			r.height += 1
 			boxes.append((c,r))
-		if self._model is not None:
-			self._model.foreach(draw_box_row, self)
+		if self.model is not None:
+			self.model.foreach(draw_box_row, self)
 			for c,r in boxes:
 				draw_box_fill(self,c,r)
 		if self._temporary_box is not None:
@@ -428,13 +417,13 @@ class ImageSpace(gtk.Widget):
 	
 	def _update(self):
 		# Called when zoom or image changes
-		if self._image is not None and not hasattr(self.window, 'cairo_create'):
-			if self._zoom == 1.0:
-				self._scaled = self._image
+		if self.image is not None and not hasattr(self.window, 'cairo_create'):
+			if self.zoom == 1.0:
+				self._scaled = self.image
 			else:
-				self._scaled = self._image.scale_simple(
-					int(self._image.get_width() * self._zoom),
-					int(self._image.get_height() * self._zoom),
+				self._scaled = self.image.scale_simple(
+					int(self.image.get_width() * self.zoom),
+					int(self.image.get_height() * self.zoom),
 					gtk.gdk.INTERP_HYPER)
 		else:
 			self._scaled = None
@@ -449,12 +438,12 @@ class ImageSpace(gtk.Widget):
 		Inverse of widget2imgcoords().
 		"""
 		# Change to centered-origin
-		if self._image is not None:
-			x -= self._image.get_width() * self._zoom / 2
-			y -= self._image.get_height() * self._zoom / 2
+		if self.image is not None:
+			x -= self.image.get_width() * self.zoom / 2
+			y -= self.image.get_height() * self.zoom / 2
 		# Scale
-		x *= self._zoom
-		y *= self._zoom
+		x *= self.zoom
+		y *= self.zoom
 		# Change to Widget's origin
 		x += self.allocation.width / 2
 		y += self.allocation.height / 2
@@ -471,24 +460,24 @@ class ImageSpace(gtk.Widget):
 		x -= self.allocation.width / 2
 		y -= self.allocation.height / 2
 		# Scale
-		x *= self._zoom
-		y *= self._zoom
+		x *= self.zoom
+		y *= self.zoom
 		# Change to Image's origin
-		if self._image is not None:
-			x += self._image.get_width() * self._zoom / 2
-			y += self._image.get_height() * self._zoom / 2
+		if self.image is not None:
+			x += self.image.get_width() * self.zoom / 2
+			y += self.image.get_height() * self.zoom / 2
 		return x,y
 	
 	def rect2img(self, rect):
 		x,y = self.widget2imgcoords(rect.x, rect.y)
-		w = rect.width * self._zoom
-		h = rect.height * self._zoom
+		w = rect.width * self.zoom
+		h = rect.height * self.zoom
 		return frect(x,y,w,h)
 	
 	def rect2widget(self, rect):
 		x,y = self.img2widgetcoords(rect.x, rect.y)
-		w = rect.width / self._zoom
-		h = rect.height / self._zoom
+		w = rect.width / self.zoom
+		h = rect.height / self.zoom
 		return frect(x,y,w,h)
 	
 	def alloc2img(self):
@@ -501,14 +490,14 @@ class ImageSpace(gtk.Widget):
 		"""is.find_boxes_under_coord(num,num) -> [Box]
 		Returns all of the boxes underneath image location (x,y).
 		"""
-		return tuple(r[self._box_col] for r in self._model if rect_contains(r[self._box_col].rect,x,y))
+		return tuple(r[self.box_col] for r in self.model if rect_contains(r[self.box_col].rect,x,y))
 	
 	def _model_changed(self, model, path, iter=None):
 		if not self.flags() & gtk.REALIZED: return
 		if iter is not None:
-			self.invalidate_rect(self.rect2widget(self._model.get(iter, self._box_col)[0].rect), True)
+			self.queue_draw_area(*self.rect2widget(self.model.get(iter, int(self.box_col))[0].rect))
 		else:
-			self.invalidate_rect(self.allocation, True)
+			self.queue_draw_area(*self.allocation)
 	
 	_boxes_under_cursor = None
 	
@@ -546,7 +535,7 @@ class ImageSpace(gtk.Widget):
 			return True
 		
 		if self._changed_rect is None or not rect_contains(self._changed_rect, x, y):
-			if len(self._model) == 0: return False
+			if len(self.model) == 0: return False
 			# The mouse left the common area
 #			print '(%i,%i)' % (x,y),
 			
@@ -566,8 +555,8 @@ class ImageSpace(gtk.Widget):
 				changed = alloc
 			for b in newboxes[1:]:
 				changed = changed.intersect(b.rect)
-			for r in self._model:
-				b = r[self._box_col]
+			for r in self.model:
+				b = r[self.box_col]
 				if b not in newboxes:
 					changed = rect_diff(changed, b.rect, (x,y))
 			if changed == alloc: # This is so extrodinarily BAD that we should test for it.
@@ -598,7 +587,7 @@ class ImageSpace(gtk.Widget):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
 		
-		if self._mode == self.INSERT:
+		if self.mode == self.INSERT:
 			if (state & gtk.gdk.BUTTON1_MASK) and self._insert_start_coords is not None:
 				# Adjust temporary box
 				nr = pt2rect(icoords, self._insert_start_coords)
@@ -611,10 +600,10 @@ class ImageSpace(gtk.Widget):
 	def do_button_press_event(self, event):
 		# make sure it was the first button
 		if event.button == 1:
-			if self._mode == self.INSERT:
+			if self.mode == self.INSERT:
 				# Begin new box
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
-				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self._next_color.copy())
+				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self.next_color.copy())
 				self.emit('insert-box-changed', self._temporary_box)
 			else:
 				# Change selection
@@ -624,7 +613,7 @@ class ImageSpace(gtk.Widget):
 	def do_button_release_event(self, event):
 		# make sure it was the first button
 		if event.button == 1:
-			if self._mode == self.INSERT:
+			if self.mode == self.INSERT:
 				# End new box
 				nb = self._temporary_box
 				self._insert_start_coords = self._temporary_box = None

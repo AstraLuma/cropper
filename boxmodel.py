@@ -3,6 +3,8 @@ from gtk import gdk
 from gobject import TYPE_BOOLEAN, TYPE_BOXED, TYPE_CHAR, TYPE_DOUBLE, TYPE_ENUM, TYPE_FLAGS, TYPE_FLOAT, TYPE_INT, TYPE_INT64, TYPE_STRING, TYPE_UCHAR, TYPE_UINT, TYPE_UINT64, TYPE_ULONG
 from box import Box
 from modelhelpers import GenericTreeStore
+#from gobject.propertyhelper import property as gprop
+from usefulgprop import property as gprop
 
 __all__ = 'BoxListStore',
 
@@ -42,19 +44,21 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	 10. exists_img (ro, generated)
 	 11. tooltip (ro, generated)
 	"""
-	__gtype_name__ = 'BoxListStore'
-	__gproperties__ = {
-		'exist-image' : (gobject.TYPE_STRING,
-		           'file exists image',
-		           'Image shown when the filename exists.',
-		           None,
-		           gobject.PARAM_READWRITE),
-		'no-exist-image' : (gobject.TYPE_STRING,
-		           "file doesn't exists image",
-		           "Image shown when the filename doesn't exist.",
-		           None,
-		           gobject.PARAM_READWRITE),
-		}
+	exist_image = gprop(
+		type=gobject.TYPE_STRING,
+		nick='file exists image',
+		blurb='Image shown when the filename exists.',
+		default=None,
+		flags=gobject.PARAM_READWRITE
+		)
+	no_exist_image = gprop(
+		type=gobject.TYPE_STRING,
+		nick="file doesn't exists image",
+		blurb="Image shown when the filename doesn't exist.",
+		default=None,
+		flags=gobject.PARAM_READWRITE
+		)
+	
 	_LEN = 12
 	_exist_image = _no_exist_image = None
 	_ro_columns = 2,9,10,11
@@ -293,7 +297,6 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	
 	def on_insert_after(self, sibling, row=None):
 		return self._insert(row)
-gobject.type_register(BoxListStore)
 
 if __name__ == "__main__":
 	bls = BoxListStore()
