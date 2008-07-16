@@ -1,7 +1,4 @@
 #-*- coding: utf-8 -*-
-"""
-doc string
-"""
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys
 #from gobject.propertyhelper import property as gprop
@@ -9,14 +6,9 @@ from usefulgprop import property as gprop
 
 __all__ = 'Box',
 
-def setattr_func(obj, *props):
-	value = props[-1]
-	props = props[:-1]
-
 class Box(gobject.GObject):
 	"""
-	Nearly identical to gtk.gdk.Rectangle, but also has a color associated with 
-	it.
+	Similar to gtk.gdk.Rectangle, but also has a color associated with it.
 	"""
 	rect = gprop(
 		type=gtk.gdk.Rectangle,
