@@ -9,8 +9,9 @@ import gobject
 __all__ = 'property',
 
 def _version_compare(l,r):
-	"""
-	Takes two version tuples and compares them.
+	"""_version_compare(tuple, tuple) -> number
+	Takes two version tuples and compares them. Uses the same semantics as 
+	cmp().
 	"""
 	if l == r: return 0
 	for a,b in zip(l,r):
