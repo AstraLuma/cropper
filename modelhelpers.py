@@ -42,9 +42,10 @@ class GenericTreeStore:
 	
 	def clear(self):
 		paths = []
-		self.foreach(lambda self, path, iter, ud: path.append(path), None) # It's horribly, horribly inefficient, but that's how it is
+		self.foreach(lambda self, path, iter, ud: paths.append(path), None) # It's horribly, horribly inefficient, but that's how it is
 		self.on_clear()
 		for path in paths: self.row_deleted(path)
+		self.invalidate_iters()
 	
 	def prepend(self, row=None):
 		ref = self.on_prepend(row)

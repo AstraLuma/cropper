@@ -116,14 +116,14 @@ def iconview_rubber_band(widget, rect, cr):
 
 	del fill_color_gdk
 
-class ImageSpaceModes(gobject.GEnum):
-	__enum_values__ = {
-		# int : GEnum
-		0: 'SELECT',
-		1: 'INSERT',
-		}
-	#def __new__(cls, value); value must be int
-	# Note that this requires calling some C-level functions and allocating a new GType
+#class ImageSpaceModes(gobject.GEnum):
+#	__enum_values__ = {
+#		# int : GEnum
+#		0: 'SELECT',
+#		1: 'INSERT',
+#		}
+#	#def __new__(cls, value); value must be int
+#	# Note that this requires calling some C-level functions and allocating a new GType
 
 class ImageSpace(gtk.Widget):
 	"""
@@ -200,8 +200,20 @@ class ImageSpace(gtk.Widget):
 		blurb='The model where boxes are pulled from.',
 		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
 		)
+	def _get_selection(self):
+			return type(self).selection._default_getter(self)
+	def _set_selection(self, value):
+			if self.selection is not None:
+				self._disconnect_selection(self.selection)
+			type(self).selection._default_setter(self, value)
+			if value is not None:
+				self._connect_selection(value)
+			if self.flags() & gtk.REALIZED:
+				self.queue_draw()
 	selection = gprop(
 		type=gobject.TYPE_OBJECT, #gtk.TreeSelection,
+		getter=_get_selection,
+		setter=_set_selection,
 		nick='tree selection',
 		blurb='Selection from a TreeView. If None, manage selection ourselves.',
 		flags=gobject.PARAM_READWRITE
@@ -226,6 +238,7 @@ class ImageSpace(gtk.Widget):
 	_temporary_box = None # Used for adding boxes
 	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
 	_model_listeners = None
+	_selection_listeners = None
 	_pbl_handlers = None # signal handles for PixbufLoader
 	
 	def __init__(self, image=None, model=None, box=1):
@@ -251,6 +264,15 @@ class ImageSpace(gtk.Widget):
 		for l in self._model_listeners:
 			model.disconnect(l)
 		self._model_listeners = ()
+	
+	def _connect_selection(self, sel):
+		self._selection_listeners = (
+			sel.connect('changed', self._selection_changed),
+			)
+	def _disconnect_selection(self, sel):
+		for l in self._selection_listeners:
+			selection.disconnect(l)
+		self._selection_listeners = ()
 	
 	def loadfrompixbuf(self, pbloader):
 		"""is.loadfrompixbuf(PixbufLoader) -> None
@@ -391,13 +413,15 @@ class ImageSpace(gtk.Widget):
 		gc = self.window.new_gc()
 		gc.copy(self.gc)
 		def draw_box(model, path, row, self):
-			box = model.get(row, self.box_col)
+			box = model.get(row, int(self.box_col))
 			rect = box.rect
 			draw_alpha_rectangle_gdk(self.window, gc, box.color, True, 
 				rect.x*z, rect.y*z, (rect.width+1)*z, (rect.height+1)*z, self.alpha)
 		if self.model is not None:
 			self.model.foreach(draw_box, self)
 	
+	SELECTSIZE = 2.0
+	TEMP_IS_SELECTED = False
 	def _expose_cairo(self, event):
 		cr = self.cr
 		alloc = self.allocation
@@ -425,12 +449,16 @@ class ImageSpace(gtk.Widget):
 		# This all works
 		cr.set_line_width(linewidth)
 		cr.set_line_join(cairo.LINE_JOIN_MITER)
-		def draw_box_border(self, c, r):
+		def draw_box_border(self, c, r, s):
+			if s:
+				cr.set_line_width(linewidth*self.SELECTSIZE)
+			else:
+				cr.set_line_width(linewidth)
 			# draw border
 			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
 			cr.rectangle(r)
 			cr.stroke()
-		def draw_box_fill(self, c, r):
+		def draw_box_fill(self, c, r, s):
 			# draw fill
 			if self.alpha > 0:
 				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
@@ -445,20 +473,23 @@ class ImageSpace(gtk.Widget):
 			r = gtk.gdk.Rectangle(*r)
 			r.width += 1
 			r.height += 1
-			boxes.append((c,r))
+			s = False
+			if self.selection is not None:
+				s = self.selection.iter_is_selected(row)
+			boxes.append((c,r,s))
 		if self.model is not None:
 			self.model.foreach(draw_box_row, self)
-			for c,r in boxes:
-				draw_box_fill(self,c,r)
+			for c,r,s in boxes:
+				draw_box_fill(self,c,r,s)
 		if self._temporary_box is not None:
-			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect)
-		for c,r in boxes:
-			draw_box_border(self,c,r)
+			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+		for c,r,s in boxes:
+			draw_box_border(self,c,r,s)
 		if self._temporary_box is not None:
-			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect)
+			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
 		if __debug__:
 			if self._changed_rect is not None:
-				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect)
+				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect, False)
 	
 	def _update(self):
 		# Called when zoom or image changes
@@ -538,11 +569,16 @@ class ImageSpace(gtk.Widget):
 		return tuple(r[self.box_col] for r in self.model if rect_contains(r[self.box_col].rect,x,y))
 	
 	def _model_changed(self, model, path, iter=None):
+		self._changed_rect = None
 		if not self.flags() & gtk.REALIZED: return
 		if iter is not None:
 			self.queue_draw_area(*self.rect2widget(self.model.get(iter, int(self.box_col))[0].rect))
 		else:
 			self.queue_draw_area(*self.allocation)
+	
+	def _selection_changed(self, selection):
+		if not self.flags() & gtk.REALIZED: return
+		self.queue_draw_area(*self.allocation)
 	
 	_boxes_under_cursor = None
 	
@@ -617,18 +653,20 @@ class ImageSpace(gtk.Widget):
 		else:
 			return False
 	
-	def get_boxes_under_cursor(self):
+	def get_boxes_under_cursor(self,x=None,y=None):
 		"""is.get_boxes_under_cursor() -> (Box, ...)
 		Return the list of boxes currently under the cursor, in some order
 		"""
-		if not self._boxes_under_cursor or not self._changed_rect:
+		if not self._boxes_under_cursor or not self._changed_rect or (x is not None and y is not None):
 			# It doesn't matter if these are way off: if the mouse is outside 
 			# the cache box, it'll be recalculated.
-			x,y,_ = self.window.get_pointer()
+			if x is None or y is None:
+				x,y,_ = self.window.get_pointer()
+			x,y = self.widget2imgcoords(x,y)
 			self._update_boxes(x,y)
 		return self._boxes_under_cursor[:]
-		
 	
+	_rubber_band_start = None
 	def do_motion_notify_event(self, event):
 		"""
 		Handles updating all the cached info dealing with the mouse (eg, boxes, 
@@ -667,9 +705,12 @@ class ImageSpace(gtk.Widget):
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
 				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self.next_color.copy())
 				self.emit('insert-box-changed', self._temporary_box)
-			else:
+			elif self.mode == self.SELECT:
 				# Change selection
-				pass
+				# TODO: Rubber banding
+				if self.selection is None: return True
+				boxes = self.get_boxes_under_cursor(event.x, event.y)
+				rows = []
 			return True
 	
 	def do_button_release_event(self, event):
@@ -681,9 +722,44 @@ class ImageSpace(gtk.Widget):
 				self._insert_start_coords = self._temporary_box = None
 				if nb.rect.width == 0 or nb.rect.height == 0: 
 					return
-				self.queue_draw_area(*nb.rect)
+				redraw = self.rect2widget(nb.rect)
+				redraw.x -= 1
+				redraw.y -= 1
+				redraw.width += 2
+				redraw.height += 2
+				self.queue_draw_area(*redraw)
 				self.emit('box-added', nb)
 				self._changed_rect = None
+			elif self.mode == self.SELECT:
+				# Change selection
+				# TODO: Rubber banding
+				if self.selection is None: return True
+				rows = []
+				boxes = self.get_boxes_under_cursor(event.x, event.y)
+				def check(model, path, iter, ua):
+					boxes, rows = ua
+					rbox, = model.get(iter, int(self.box_col))
+					if rbox in boxes:
+						rows.append(iter)
+				if event.state & gtk.gdk.SHIFT_MASK:
+					self.model.foreach(check, (boxes, rows))
+					assert len(boxes) == len(rows)
+				else:
+					self.model.foreach(check, (boxes[0:1], rows))
+				print "Boxes: %r" % (boxes,)
+				print "Rows: %r" % rows
+				selection = self.selection
+				if event.state & gtk.gdk.CONTROL_MASK:
+					for r in rows: 
+						if selection.iter_is_selected(r):
+							selection.unselect_iter(r)
+						else:
+							selection.select_iter(r)
+				else:
+					selection.unselect_all()
+					for r in rows: 
+						selection.select_iter(r)
+				
 	
 	def do_box_added(self, box):
 		print "box-added", self, box

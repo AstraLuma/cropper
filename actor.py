@@ -6,6 +6,7 @@ doc string
 """
 from __future__ import division, absolute_import, with_statement
 import gtk, os, sys
+from functools import wraps
 __all__ = 'Actor', 'action'
 
 _iconfactory = None
@@ -15,7 +16,11 @@ def action(label=None, stock=None, tooltip=None, group=None, accel=None,
 		shortlabel=None, radiogroup=None, toggle=None, active=None, 
 		enabled=None, **kw):
 	"""action(...) -> callable(method) -> method
-	Registers the method as an action.
+	Flags the method as an action. Decorator.
+	
+	>>> @action(stock='gtk-add')
+	... def foo(self):
+	... 	pass
 	"""
 	global _iconfactory
 	if 'theme' in kw or 'image' in kw:
@@ -26,6 +31,7 @@ def action(label=None, stock=None, tooltip=None, group=None, accel=None,
 		keymod,keyval = 0,0
 		if accel:
 			keymod,keyval = gtk.accelerator_parse(accel)
+		print "Accel parse: %r %r %r" % (accel, keymod, keyval)
 		
 		if 'theme' in kw:
 			# Lookup the image from the icon sets
@@ -72,7 +78,7 @@ def action(label=None, stock=None, tooltip=None, group=None, accel=None,
 		
 		# Clean out the args so that it pulls them from stock
 		label = None
-		accel = None
+		#accel = None
 	
 	def _(method):
 		method.act_name = method.__name__
@@ -142,23 +148,33 @@ class Actor(object):
 				act.connect('activate', ActionHandler(func))
 				
 				v.action = act
+				#func.action = act # So that methods have it as well, except methods don't allow user-defined properties
 				self.actions[act.get_name()] = act
 		self.manager = gtk.UIManager()
 		self.manager.connect('add-widget', self.add_widget)
+		if __debug__: 
+			self.manager.get_accel_group().connect('accel-changed', lambda grp, key, mods, closure: sys.stdout.write("Accel changed: %r %r (%r) %r %r\n" % (grp, key, chr(key), mods, closure)))
 		for grp in self.actiongroups.itervalues():
 			self.manager.insert_action_group(grp, -1)
 		if hasattr(self, '__ui__'):
 			self._mergeid = self.manager.add_ui_from_string(self.__ui__)
+#		if hasattr(self, 'window'):
+#			self.window.connect('show', self.preshow)
 		return self
 	
-	def preshow(self):
+	def preshow(self, *_):
+		"""
+		Call this before showing the window.
+		"""
 		self.manager.ensure_update()
+		self.window.add_accel_group(self.manager.get_accel_group())
+		#return True
 	
 	def add_menubar(self, menubar):
-		raise NotImplemented
+		raise NotImplementedError
 	
 	def add_toolbar(self, toolbar):
-		raise NotImplemented
+		raise NotImplementedError
 	
 	def add_widget(self, manager, widget):
 		if isinstance(widget, gtk.MenuBar):

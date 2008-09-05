@@ -23,8 +23,8 @@ from box import Box
 from boxmodel import BoxListStore
 from imagespace import ImageSpace
 from actor import Actor, action
-#from optparse import OptionParser
-from gobject.option import OptionParser
+from optparse import OptionParser
+#from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
@@ -64,7 +64,7 @@ def make_absolute(fn):
 	else:
 		return os.path.abspath(fn)
 
-class Cropper(GladeWindow, Actor):
+class Cropper(Actor, GladeWindow):
 	window = property(lambda self: self.wCropper)
 	filename = None
 	def __init__(self, options, args, *pargs, **kwargs):
@@ -74,9 +74,11 @@ class Cropper(GladeWindow, Actor):
 		self.model.no_exist_image = 'gtk-cancel'
 		
 		self.tvAreas.set_model(self.model)
+		self.tvAreas.get_selection().set_mode(gtk.SELECTION_MULTIPLE)
+		self.tvAreas.get_selection().connect('changed', self.on_selection_changed)
 		
 		self.isImage = ImageSpace(model=self.model, box=1)
-		self.isImage.selection = self.tvAreas.get_selection() # Is this always going to be the same object?
+		self.isImage.selection = self.tvAreas.get_selection()
 		self.isImage.mode = ImageSpace.INSERT
 		self.isImage.next_color = gtk.gdk.color_parse('#A0F')
 		self.isImage.connect('box-added', self.on_box_added)
@@ -108,6 +110,11 @@ class Cropper(GladeWindow, Actor):
 		if len(args):
 			print "args: %r" % args
 			self.Open(make_absolute(args[0]))
+#		self.window.connect('key-press-event', self._keypress)
+	
+#	def _keypress(self, window, event):
+#		print "Keypress: %r %r" % (event.keyval, event.state)
+#		return False
 	
 	def present(self):
 		self.preshow()
@@ -147,6 +154,9 @@ class Cropper(GladeWindow, Actor):
 	def on_box_added(self, widget, box):
 		self.model.append([self.get_next_filename(), box])
 		self.isImage.next_color = self.get_next_color(self.isImage.next_color)
+	
+	def on_selection_changed(self, selection):
+		self.actions['Delete'].set_sensitive(bool(selection.count_selected_rows()))
 	
 	# Actions/UI stuff
 	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
@@ -210,6 +220,9 @@ class Cropper(GladeWindow, Actor):
 		<toolitem action="Add"/>
 		<toolitem action="Select"/>
 	</toolbar>
+	<!-- Why??? -->
+	<accelerator action="Add"/>
+	<accelerator action="Select"/>
 </ui>
 """
 	# :p menus
@@ -265,7 +278,9 @@ class Cropper(GladeWindow, Actor):
 		else:
 			self._loadfromvfs(pbl, gnomevfs.URI(filename))
 	
-	def _loadfromvfs(self, pbl, filename):
+	def _loadfromvfs(self, pbl, uri):
+		if not gnomevfs.exists(uri):
+			raise IOError, "File does not exist"
 		# Handles all the async mess. I want twisted deferreds!
 		def _open(img, exc_type):
 			if exc_type:
@@ -276,9 +291,14 @@ class Cropper(GladeWindow, Actor):
 						pbl.close()
 					else:
 						img.read(BUFSIZE, _read) # Start the next read immediately
-						pbl.write(buffer)
+						try:
+							pbl.write(buffer)
+						except:
+							pbl.close()
+							img.cancel()
+							raise
 				img.read(BUFSIZE, _read)
-		img = gnomevfs.async.open(filename, _open, gnomevfs.OPEN_READ)
+		img = gnomevfs.async.open(uri, _open, gnomevfs.OPEN_READ)
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
@@ -325,11 +345,14 @@ class Cropper(GladeWindow, Actor):
 	@action(stock='gtk-delete', enabled=False)
 	def Delete(self):
 		print 'Delete'
-		pass
+		model, rows = self.tvAreas.get_selection().get_selected_rows()
+		rows = map(model.get_iter, rows)
+		for row in rows:
+			model.remove(row)
 	
-	@action(stock='gtk-select-all', enabled=False)
+	@action(stock='gtk-select-all')
 	def SelectAll(self):
-		pass
+		self.tvAreas.get_selection().select_all()
 	
 	@action(stock='gtk-zoom-in', enabled=False)
 	def ZoomIn(self):
@@ -359,7 +382,7 @@ class Cropper(GladeWindow, Actor):
 	def RotateCW(self):
 		pass
 	
-	@action(stock='cropper-rotate-left', theme='object-rotate-left', label='Rotate Counterclockwise', shortlabel='Left')
+	@action(stock='cropper-rotate-left', theme='object-rotate-left', label='Rotate Counterclockwise', shortlabel='Left', enabled=False)
 	def RotateCCW(self):
 		pass
 	
@@ -367,8 +390,9 @@ class Cropper(GladeWindow, Actor):
 	def EditPreferences(self):
 		pass
 	
-	@action(stock='cropper-auto-shrink', image=None, label='Auto Shrink', enabled=False)
+	@action(stock='cropper-auto-shrink', image=None, label='Auto Shrink')
 	def AutoShrink(self):
+		# Shrink boxes to image size
 		pass
 	
 	@action(stock='gtk-about')
@@ -387,12 +411,14 @@ class Cropper(GladeWindow, Actor):
 		dlg.run()
 		dlg.destroy()
 	
-	@action(stock='gtk-add', radiogroup='editmode', active=True)
+	@action(stock='cropper-add', radiogroup='editmode', theme='add', label='Add', accel='a', active=True)
 	def Add(self):
+		print "Add"
 		self.isImage.mode = ImageSpace.INSERT
 	
-	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', enabled=False)
+	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', accel='s')
 	def Select(self):
+		print "Select"
 		self.isImage.mode = ImageSpace.SELECT
 
 if __name__ == '__main__':
