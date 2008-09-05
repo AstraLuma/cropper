@@ -269,9 +269,9 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		else:
 			row = row[0:2]
 			if not (len(row) < 1 or isinstance(row[0], str)):
-				raise ValueError, "Must have str,Box,..."
+				raise ValueError, "Must have (str,Box,...), received %r" % row
 			if not (len(row) < 2 or isinstance(row[1], Box)):
-				raise ValueError, "Must have str,Box,..."
+				raise ValueError, "Must have (str,Box,...), received %r" % row
 		return self._createrow(*row)
 	
 	def on_remove(self, rowref):

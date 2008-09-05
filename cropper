@@ -12,12 +12,19 @@ import gtk, gobject
 #gtk.gdk.threads_init()
 #gobject.threads_init()
 import gtk.glade, pango
+try:
+	import gnomevfs
+except ImportError:
+	gnomevfs = None
+else:
+	import gnomevfs.async
 from glade import GladeWindow, resource
 from box import Box
 from boxmodel import BoxListStore
 from imagespace import ImageSpace
 from actor import Actor, action
-from optparse import OptionParser
+#from optparse import OptionParser
+from gobject.option import OptionParser
 import sys, os, subprocess
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
@@ -26,10 +33,15 @@ parser = OptionParser()
 #                  action="store_false", dest="verbose", default=True,
 #                  help="don't print status messages to stdout")
 
+if gnomevfs:
+	BUFSIZE = 8*1024 #8K # Amount to read in one go
+else:
+	BUFSIZE = 16*1024 #16K
+
 def permIter(seq):
 	"""
 	Given some sequence 'seq', returns an iterator that gives
-	all permutations of that sequence.
+	all permutations of that sequence.http://localhost:8080/
 	"""
 	# http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/105962
 	## Base case
@@ -43,6 +55,14 @@ def permIter(seq):
 			for rest in rest_iter:
 				yield element_slice + rest
 
+def make_absolute(fn):
+	if gnomevfs:
+		rv = gnomevfs.URI(fn)
+		if rv.is_local:
+			rv = gnomevfs.URI(os.path.abspath(fn))
+		return str(rv)
+	else:
+		return os.path.abspath(fn)
 
 class Cropper(GladeWindow, Actor):
 	window = property(lambda self: self.wCropper)
@@ -56,6 +76,7 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.set_model(self.model)
 		
 		self.isImage = ImageSpace(model=self.model, box=1)
+		self.isImage.selection = self.tvAreas.get_selection() # Is this always going to be the same object?
 		self.isImage.mode = ImageSpace.INSERT
 		self.isImage.next_color = gtk.gdk.color_parse('#A0F')
 		self.isImage.connect('box-added', self.on_box_added)
@@ -83,6 +104,10 @@ class Cropper(GladeWindow, Actor):
 		self.tvAreas.append_column(self.tvcColor)
 		self.tvAreas.set_headers_visible(False)
 		self.tvAreas.set_tooltip_column(11)
+		
+		if len(args):
+			print "args: %r" % args
+			self.Open(make_absolute(args[0]))
 	
 	def present(self):
 		self.preshow()
@@ -199,7 +224,7 @@ class Cropper(GladeWindow, Actor):
 	
 	@action(stock='gtk-open')
 	def Open(self, filename=None):
-		print 'Open'
+		print 'Open: %r' % filename
 		if filename is None:
 			dlg = gtk.FileChooserDialog(parent=self.wCropper,
 				action=gtk.FILE_CHOOSER_ACTION_OPEN, 
@@ -210,20 +235,54 @@ class Cropper(GladeWindow, Actor):
 				)
 			dlg.set_use_preview_label(True)
 			dlg.set_select_multiple(False)
-			dlg.set_local_only(True) #TODO: Allow for anything
+			if gnomevfs is None:
+				dlg.set_local_only(True)
 			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
 				dlg.destroy()
 				return
-			filename = dlg.get_filename()
+			if gnomevfs is None:
+				filename = dlg.get_filename()
+			else:
+				filename = dlg.get_uri()
 			dlg.destroy()
 		# Open image
 		self.filename = filename
-		#TODO: Use gtk.gdk.PixbufLoader
-		self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
-		self.model.clear()
+		#self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
+		#Use gtk.gdk.PixbufLoader
+		# open the file
+		pbl = gtk.gdk.PixbufLoader()
+		self.isImage.loadfrompixbuf(pbl)
+		if gnomevfs is None:
+			img = open(filename, 'r')
+			def readchunk(cb, size, f, pbl):
+				data = f.read(size)
+				if len(data) > 0:
+					pbl.write(data)
+					gobject.idle_add(cb, size, f, pbl)
+				else:
+					pbl.close()
+			gobject.idle_add(readchunk, readchunk, BUFSIZE, img, pbl)
+		else:
+			self._loadfromvfs(pbl, gnomevfs.URI(filename))
+	
+	def _loadfromvfs(self, pbl, filename):
+		# Handles all the async mess. I want twisted deferreds!
+		def _open(img, exc_type):
+			if exc_type:
+				pbl.close()
+			else:
+				def _read(img, buffer, exc_type, bytes_requested):
+					if exc_type:
+						pbl.close()
+					else:
+						img.read(BUFSIZE, _read) # Start the next read immediately
+						pbl.write(buffer)
+				img.read(BUFSIZE, _read)
+		img = gnomevfs.async.open(filename, _open, gnomevfs.OPEN_READ)
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
+		# FIXME: Use gnomevfs if available
 		print 'Crop'
 		cmd_start = ['convert', self.filename]
 		#FIXME: Ask if there's conflicts
@@ -337,7 +396,7 @@ class Cropper(GladeWindow, Actor):
 		self.isImage.mode = ImageSpace.SELECT
 
 if __name__ == '__main__':
-	options, args = parser.parse_args()
+	options, args = parser.parse_args(sys.argv[1:])
 	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
 	
 #	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')

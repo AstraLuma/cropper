@@ -22,6 +22,13 @@ def RGBA(*p):
 		rv = (rv << 8) | (n & 0xFF)
 	return rv
 
+class ISpaceBox(object):
+	"""
+	A simple object to keep track of state of boxes in ImageSpace and to handle 
+	drawing.
+	"""
+	#TODO: Fill in details
+
 # A "method" for Drawable
 def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha):
 	"""
@@ -109,8 +116,14 @@ def iconview_rubber_band(widget, rect, cr):
 
 	del fill_color_gdk
 
-class ImagSpace_Modes(gobject.GEnum):
-	pass
+class ImageSpaceModes(gobject.GEnum):
+	__enum_values__ = {
+		# int : GEnum
+		0: 'SELECT',
+		1: 'INSERT',
+		}
+	#def __new__(cls, value); value must be int
+	# Note that this requires calling some C-level functions and allocating a new GType
 
 class ImageSpace(gtk.Widget):
 	"""
@@ -119,7 +132,7 @@ class ImageSpace(gtk.Widget):
 	TODO: Add Special Modes
 	"""
 	# Constants
-	SELECT, INSERT = MODES = range(2)
+	SELECT, INSERT = MODES = range(2) #map(ImageSpaceModes, xrange(2))
 	__gsignals__ = {
 		'box-added'    : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
 		'insert-box-changed': (gobject.SIGNAL_RUN_LAST|gobject.SIGNAL_ACTION, gobject.TYPE_NONE, (Box,)),
@@ -187,6 +200,12 @@ class ImageSpace(gtk.Widget):
 		blurb='The model where boxes are pulled from.',
 		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
 		)
+	selection = gprop(
+		type=gobject.TYPE_OBJECT, #gtk.TreeSelection,
+		nick='tree selection',
+		blurb='Selection from a TreeView. If None, manage selection ourselves.',
+		flags=gobject.PARAM_READWRITE
+		)
 	box_col = gprop(
 		type=gobject.TYPE_UINT,
 		nick='color column',
@@ -199,7 +218,7 @@ class ImageSpace(gtk.Widget):
 	next_color = gprop(
 		type=gtk.gdk.Color,
 		nick='next color',
-		blurb='The color the next box will be.',
+		blurb='The color the next box will be. I suggest setting this in the box-added signal.',
 		flags=gobject.PARAM_READWRITE
 		)
 	
@@ -207,6 +226,7 @@ class ImageSpace(gtk.Widget):
 	_temporary_box = None # Used for adding boxes
 	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
 	_model_listeners = None
+	_pbl_handlers = None # signal handles for PixbufLoader
 	
 	def __init__(self, image=None, model=None, box=1):
 #		print "__init__", self, image, model, color, rect
@@ -231,6 +251,31 @@ class ImageSpace(gtk.Widget):
 		for l in self._model_listeners:
 			model.disconnect(l)
 		self._model_listeners = ()
+	
+	def loadfrompixbuf(self, pbloader):
+		"""is.loadfrompixbuf(PixbufLoader) -> None
+		Prepares the ImageSpace to load an image from PixbufLoader. The caller 
+		is expected to create the PixbufLoader and call its write() method.
+		"""
+		self.image = None
+		self._pbl_handlers = (
+			pbloader.connect('area-prepared', self.pbl_do_prepared),
+			pbloader.connect('area-updated', self.pbl_do_updated),
+			pbloader.connect('closed', self.pbl_do_closed),
+			)
+	
+	def pbl_do_prepared(self, pbloader):
+		self.image = pbloader.get_pixbuf()
+	
+	def pbl_do_updated(self, pbloader, x, y, width, height):
+		if self.flags() & gtk.REALIZED:
+			redraw = self.rect2widget(frect(x,y-1,width,height+1)) # Go back one row
+			self.queue_draw_area(*redraw)
+	
+	def pbl_do_closed(self, pbloader):
+		for h in self._pbl_handlers:
+			pbloader.disconnect(h)
+		self._pbl_handlers = None
 	
 	def do_realize(self):
 		# The do_realize method is responsible for creating GDK (windowing system)
@@ -562,16 +607,33 @@ class ImageSpace(gtk.Widget):
 			if changed == alloc: # This is so extrodinarily BAD that we should test for it.
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
-				cahnged = None
+				changed = None
 #			print "Change rect:", tuple(changed)
 			self._changed_rect = changed
-			if __debug__: self.queue_draw_area(*self.allocation)
+			if __debug__: # If debugging, redraw every time the box changes
+				self.queue_draw_area(*self.allocation)
 			assert changed is None or rect_contains(changed, x,y)
 			return True
 		else:
 			return False
 	
+	def get_boxes_under_cursor(self):
+		"""is.get_boxes_under_cursor() -> (Box, ...)
+		Return the list of boxes currently under the cursor, in some order
+		"""
+		if not self._boxes_under_cursor or not self._changed_rect:
+			# It doesn't matter if these are way off: if the mouse is outside 
+			# the cache box, it'll be recalculated.
+			x,y,_ = self.window.get_pointer()
+			self._update_boxes(x,y)
+		return self._boxes_under_cursor[:]
+		
+	
 	def do_motion_notify_event(self, event):
+		"""
+		Handles updating all the cached info dealing with the mouse (eg, boxes, 
+		tooltips).
+		"""
 		# if this is a hint, then let's get all the necessary 
 		# information, if not it's all we need.
 		if event.is_hint:
