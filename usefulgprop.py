@@ -26,7 +26,7 @@ def _version_compare(l,r):
 
 if _version_compare(gobject.glib_version, (9,0,0)) >= 0:
 	# Bug fixed
-	from gobject.propertyhelper import property
+	from gobject.propertyhelper import property as intermediateprop
 else:
 	from gobject.propertyhelper import property as gprop
 	from gobject.constants import \
@@ -36,7 +36,7 @@ else:
 		 TYPE_FLAGS, TYPE_FLOAT, TYPE_DOUBLE, TYPE_STRING, \
 		 TYPE_POINTER, TYPE_BOXED, TYPE_PARAM, TYPE_OBJECT, \
 		 TYPE_PYOBJECT
-	class property(gprop):
+	class intermediateprop(gprop):
 		def _type_from_python(self, type): # Yes, this is private
 			try:
 				return super(property, self)._type_from_python(type)
@@ -77,4 +77,13 @@ else:
 			else:
 				return super(property, self).get_pspec_args()
 			return (self.type, self.nick, self.blurb) + args + (self.flags,)
+
+# Adds a feature that if you give Ellipsis as the getter or setter, it uses the default
+class property(intermediateprop):
+	def __init__(self, *p, **kw):
+		super(property, self).__init__(*p, **kw)
+		if self.getter is Ellipsis:
+			self.getter = self._default_getter
+		if self.setter is Ellipsis:
+			self.setter = self._default_setter
 

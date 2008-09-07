@@ -22,13 +22,6 @@ def RGBA(*p):
 		rv = (rv << 8) | (n & 0xFF)
 	return rv
 
-class ISpaceBox(object):
-	"""
-	A simple object to keep track of state of boxes in ImageSpace and to handle 
-	drawing.
-	"""
-	#TODO: Fill in details
-
 # A "method" for Drawable
 def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha):
 	"""
@@ -182,8 +175,6 @@ class ImageSpace(gtk.Widget):
 		default=64,
 		flags=gobject.PARAM_READWRITE
 		)
-	def _get_model(self):
-			return type(self).model._default_getter(self)
 	def _set_model(self, value):
 			if self.model is not None:
 				self._disconnect_model(self.model)
@@ -194,14 +185,12 @@ class ImageSpace(gtk.Widget):
 				self.queue_draw()
 	model = gprop(
 		type=gobject.TYPE_OBJECT, #gtk.TreeModel,
-		getter=_get_model,
+		getter=Ellipsis,
 		setter=_set_model,
 		nick='data model',
 		blurb='The model where boxes are pulled from.',
 		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
 		)
-	def _get_selection(self):
-			return type(self).selection._default_getter(self)
 	def _set_selection(self, value):
 			if self.selection is not None:
 				self._disconnect_selection(self.selection)
@@ -212,7 +201,7 @@ class ImageSpace(gtk.Widget):
 				self.queue_draw()
 	selection = gprop(
 		type=gobject.TYPE_OBJECT, #gtk.TreeSelection,
-		getter=_get_selection,
+		getter=Ellipsis,
 		setter=_set_selection,
 		nick='tree selection',
 		blurb='Selection from a TreeView. If None, manage selection ourselves.',
@@ -253,6 +242,8 @@ class ImageSpace(gtk.Widget):
 		self.cr = None
 		# other stuff
 		self._update()
+		self.connect('notify::zoom', 
+			lambda self, prop: self.queue_draw_area(*self.allocation) if self.flags() & gtk.REALIZED else None)
 	
 	def _connect_model(self, model):
 		self._model_listeners = (
@@ -384,6 +375,9 @@ class ImageSpace(gtk.Widget):
 			self.allocation.width/self.image.get_width(),
 			self.allocation.height/self.image.get_height()
 			)
+		if self.flags() & gtk.REALIZED:
+			self.queue_draw_area(*self.allocation)
+
 	
 	def do_expose_event(self, event):
 		# The do_expose_event is called when the widget is asked to draw itself
@@ -568,6 +562,46 @@ class ImageSpace(gtk.Widget):
 		"""
 		return tuple(r[self.box_col] for r in self.model if rect_contains(r[self.box_col].rect,x,y))
 	
+	RESIZE_RANGE = 3
+	def find_boxes_coord_near(self, x,y, range=None):
+		"""is.find_boxes_coord_near(num,num) -> (Box, dir), ...
+		Returns all of the boxes which:
+		* are underneath image location (x,y)
+		* have an edge near image location (x,y)
+		
+		If given, range is how close to the edge we need to be (in widget 
+		pixels).
+		
+		dir is intern()'d 'N'orth, 'S'outh, 'E'ast, 'W'est, 'NE', 'NW', 'SW', 
+		'SE'.
+		
+		If the location given is within range of two opposite sides (ie skinny 
+		boxes), then the closer of the two is returned
+		"""
+		if range is None: range = self.RESIZE_RANGE
+		range /= self.zoom
+		
+		
+		for box in self.find_boxes_under_coord(x,y):
+			dir = ''
+			if box.width < range*2:
+				# Skinny!
+				dir = 'W' if x - box.x < box.x+box.width - x else 'E'
+			elif x - box.x <= range:
+				dir = 'W'
+			elif box.x+box.width - x <= range:
+				dir = 'E'
+			if box.height < range*2:
+				# Skinny!
+				dir += 'N' if y - box.y < box.y+box.height - y else 'S'
+			elif y - box.y <= range:
+				dir += 'N'
+			elif box.y+box.height - y <= range:
+				dir += 'S'
+			
+			if len(dir):
+				yield box, intern(dir)
+	
 	def _model_changed(self, model, path, iter=None):
 		self._changed_rect = None
 		if not self.flags() & gtk.REALIZED: return
@@ -666,7 +700,20 @@ class ImageSpace(gtk.Widget):
 			self._update_boxes(x,y)
 		return self._boxes_under_cursor[:]
 	
+	RESIZE_CURSORS = {
+		'N' :gtk.gdk.TOP_SIDE,
+		'S' :gtk.gdk.BOTTOM_SIDE,
+		'E' :gtk.gdk.RIGHT_SIDE,
+		'W' :gtk.gdk.LEFT_SIDE,
+		'NE':gtk.gdk.TOP_RIGHT_CORNER,
+		'NW':gtk.gdk.TOP_LEFT_CORNER,
+		'SE':gtk.gdk.BOTTOM_RIGHT_CORNER,
+		'SW':gtk.gdk.BOTTOM_LEFT_CORNER,
+		}
+	
 	_rubber_band_start = None
+	_box_may_resize = None
+	_box_are_resizing = None
 	def do_motion_notify_event(self, event):
 		"""
 		Handles updating all the cached info dealing with the mouse (eg, boxes, 
@@ -687,15 +734,28 @@ class ImageSpace(gtk.Widget):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
 		
-		if self.mode == self.INSERT:
-			if (state & gtk.gdk.BUTTON1_MASK) and self._insert_start_coords is not None:
-				# Adjust temporary box
-				nr = pt2rect(icoords, self._insert_start_coords)
-				redraw = nr.union(self._temporary_box.rect)
-				self._temporary_box.rect = nr
-				#self.queue_draw_area(*redraw)
-				self.queue_draw()
-				self.emit('insert-box-changed', self._temporary_box)
+		if self.mode == self.INSERT and self._insert_start_coords is not None and state & gtk.gdk.BUTTON1_MASK:
+			# Adjust temporary box
+			nr = pt2rect(icoords, self._insert_start_coords)
+			redraw = nr.union(self._temporary_box.rect)
+			self._temporary_box.rect = nr
+			#self.queue_draw_area(*redraw)
+			self.queue_draw()
+			self.emit('insert-box-changed', self._temporary_box)
+		elif self._box_are_resizing is not None:
+			pass
+		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
+				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
+				gtk.gdk.BUTTON5_MASK):
+			boxes = tuple(self.find_boxes_coord_near(x,y)) #FIXME: Use cache
+			if len(boxes):
+				print "Nearby Boxes: %r" % (boxes,)
+				box, dir = boxes[0]
+				self._box_may_resize = box
+				self.window.set_cursor(gtk.gdk.Cursor(self.window.get_display(), self.RESIZE_CURSORS[dir]))
+			else:
+				self._box_may_resize = None
+				self.window.set_cursor(None)
 	
 	def do_button_press_event(self, event):
 		# make sure it was the first button
