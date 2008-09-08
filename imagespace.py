@@ -562,7 +562,7 @@ class ImageSpace(gtk.Widget):
 		"""
 		return tuple(r[self.box_col] for r in self.model if rect_contains(r[self.box_col].rect,x,y))
 	
-	RESIZE_RANGE = 3
+	RESIZE_RANGE = 5
 	def find_boxes_coord_near(self, x,y, range=None):
 		"""is.find_boxes_coord_near(num,num) -> (Box, dir), ...
 		Returns all of the boxes which:
@@ -584,13 +584,6 @@ class ImageSpace(gtk.Widget):
 		
 		for box in self.find_boxes_under_coord(x,y):
 			dir = ''
-			if box.width < range*2:
-				# Skinny!
-				dir = 'W' if x - box.x < box.x+box.width - x else 'E'
-			elif x - box.x <= range:
-				dir = 'W'
-			elif box.x+box.width - x <= range:
-				dir = 'E'
 			if box.height < range*2:
 				# Skinny!
 				dir += 'N' if y - box.y < box.y+box.height - y else 'S'
@@ -598,7 +591,15 @@ class ImageSpace(gtk.Widget):
 				dir += 'N'
 			elif box.y+box.height - y <= range:
 				dir += 'S'
-			
+			if box.width < range*2:
+				# Skinny!
+				dir = 'W' if x - box.x < box.x+box.width - x else 'E'
+			elif x - box.x <= range:
+				dir = 'W'
+			elif box.x+box.width - x <= range:
+				dir = 'E'
+#			print "find_boxes_coord_near: box, dir: (%r,%r) %r, %r    \r" % (x,y,box, dir),
+			sys.stdout.flush()
 			if len(dir):
 				yield box, intern(dir)
 	
@@ -714,6 +715,8 @@ class ImageSpace(gtk.Widget):
 	_rubber_band_start = None
 	_box_may_resize = None
 	_box_are_resizing = None
+	_box_may_resize_dir = None
+	_box_are_resizing_dir = None
 	def do_motion_notify_event(self, event):
 		"""
 		Handles updating all the cached info dealing with the mouse (eg, boxes, 
@@ -746,21 +749,25 @@ class ImageSpace(gtk.Widget):
 			pass
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
-				gtk.gdk.BUTTON5_MASK):
-			boxes = tuple(self.find_boxes_coord_near(x,y)) #FIXME: Use cache
+				gtk.gdk.BUTTON5_MASK): # Hover
+			boxes = tuple(self.find_boxes_coord_near(*icoords)) #FIXME: Use cache
 			if len(boxes):
-				print "Nearby Boxes: %r" % (boxes,)
+				#print "Nearby Boxes: %r" % (boxes,)
 				box, dir = boxes[0]
 				self._box_may_resize = box
+				self._box_may_resize_dir = dir
 				self.window.set_cursor(gtk.gdk.Cursor(self.window.get_display(), self.RESIZE_CURSORS[dir]))
 			else:
-				self._box_may_resize = None
+				self._box_may_resize = self._box_may_resize_dir = None
 				self.window.set_cursor(None)
 	
 	def do_button_press_event(self, event):
 		# make sure it was the first button
 		if event.button == 1:
-			if self.mode == self.INSERT:
+			if self._box_may_resize is not None:
+				self._box_are_resizing = self._box_may_resize
+				
+			elif self.mode == self.INSERT:
 				# Begin new box
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
 				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self.next_color.copy())
@@ -776,7 +783,10 @@ class ImageSpace(gtk.Widget):
 	def do_button_release_event(self, event):
 		# make sure it was the first button
 		if event.button == 1:
-			if self.mode == self.INSERT:
+			if self._box_are_resizing is not None:
+				self._box_are_resizing = self._box_may_resize = None
+				self._box_are_resizing_dir = self._box_may_resize_dir = None
+			elif self.mode == self.INSERT:
 				# End new box
 				nb = self._temporary_box
 				self._insert_start_coords = self._temporary_box = None

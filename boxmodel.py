@@ -5,6 +5,11 @@ from box import Box
 from modelhelpers import GenericTreeStore
 #from gobject.propertyhelper import property as gprop
 from usefulgprop import property as gprop
+from utils import make_absolute
+try:
+	import gnomevfs
+except ImportError:
+	gnomevfs = None
 
 __all__ = 'BoxListStore',
 
@@ -85,7 +90,10 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	
 	# Internal methods
 	def _fileexists(self, row):
-		return os.path.exists(self.__data[row][0])
+		if gnomevfs is None:
+			return os.path.exists(self.__data[row][0])
+		else:
+			return gnomevfs.exists(self.__data[row][0])
 	
 	def _abspath(self, path):
 		return os.path.abspath(path)
@@ -93,7 +101,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def _createrow(self, fn=None, box=None):
 		rv = [None]*4
 		if fn is not None:
-			fn = os.path.abspath(fn)
+			fn = make_absolute(fn)
 			rv[0] = fn
 			rv[2] = gobject.filename_display_basename(fn)
 		else:
@@ -282,6 +290,11 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		row[1].disconnect(row[3])
 	
 	def on_clear(self):
+		for k in self.__data.keys():
+			path = self.on_get_path(k)
+			self.row_deleted(path)
+			self.on_remove(k)
+		assert len(self.__data) == 0
 		self.__data.clear()
 		self.__order = []
 #		print 'on_clear:','self.__data:', self.__data

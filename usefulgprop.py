@@ -39,7 +39,7 @@ else:
 	class intermediateprop(gprop):
 		def _type_from_python(self, type): # Yes, this is private
 			try:
-				return super(property, self)._type_from_python(type)
+				return super(intermediateprop, self)._type_from_python(type)
 			except TypeError:
 				# For these, the actual type can (or must) be passed to __gproperties__
 				if issubclass(type, gobject.GInterface):
@@ -64,7 +64,7 @@ else:
 			if self.type in (TYPE_BOXED, TYPE_INTERFACE, TYPE_PARAM, TYPE_OBJECT, TYPE_POINTER):
 				if self.default is not None:
 					raise TypeError("object types does not have default values")
-			super(property, self)._check_default()
+			super(intermediateprop, self)._check_default()
 		
 		def get_pspec_args(self):
 			ptype = self.type
@@ -75,7 +75,7 @@ else:
 			elif ptype in (TYPE_BOXED, TYPE_INTERFACE, TYPE_PARAM, TYPE_OBJECT, TYPE_POINTER):
 				args = ()
 			else:
-				return super(property, self).get_pspec_args()
+				return super(intermediateprop, self).get_pspec_args()
 			return (self.type, self.nick, self.blurb) + args + (self.flags,)
 
 # Adds a feature that if you give Ellipsis as the getter or setter, it uses the default

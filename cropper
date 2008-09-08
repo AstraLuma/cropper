@@ -26,6 +26,7 @@ from actor import Actor, action
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
+from utils import make_absolute
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
 #                  help="write report to FILE", metavar="FILE")
@@ -41,7 +42,7 @@ else:
 def permIter(seq):
 	"""
 	Given some sequence 'seq', returns an iterator that gives
-	all permutations of that sequence.http://localhost:8080/
+	all permutations of that sequence.
 	"""
 	# http://aspn.activestate.com/ASPN/Cookbook/Python/Recipe/105962
 	## Base case
@@ -54,15 +55,6 @@ def permIter(seq):
 			rest_iter = permIter(seq[:i] + seq[i+1:])
 			for rest in rest_iter:
 				yield element_slice + rest
-
-def make_absolute(fn):
-	if gnomevfs:
-		rv = gnomevfs.URI(fn)
-		if rv.is_local:
-			rv = gnomevfs.URI(os.path.abspath(fn))
-		return str(rv)
-	else:
-		return os.path.abspath(fn)
 
 class Cropper(Actor, GladeWindow):
 	window = property(lambda self: self.wCropper)
@@ -248,8 +240,7 @@ class Cropper(Actor, GladeWindow):
 				)
 			dlg.set_use_preview_label(True)
 			dlg.set_select_multiple(False)
-			if gnomevfs is None:
-				dlg.set_local_only(True)
+			dlg.set_local_only(gnomevfs is None)
 			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
 				dlg.destroy()
 				return
@@ -259,6 +250,7 @@ class Cropper(Actor, GladeWindow):
 				filename = dlg.get_uri()
 			dlg.destroy()
 		# Open image
+		self.model.clear()
 		self.filename = filename
 		#self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
 		#Use gtk.gdk.PixbufLoader
@@ -302,21 +294,63 @@ class Cropper(Actor, GladeWindow):
 	
 	@action(stock='gtk-save', label='Crop')
 	def Crop(self):
-		# FIXME: Use gnomevfs if available
+		mktemp = lambda fn:os.path.join('/tmp', os.path.basename(fn))
 		print 'Crop'
-		cmd_start = ['convert', self.filename]
-		#FIXME: Ask if there's conflicts
-		for fn, box in ((r[0],r[1]) for r in self.model):
-			#FIXME: Limit to image size
-			r= box.rect
-			cmd = cmd_start+['-crop', '%ix%i+%i+%i' % (r.width, r.height, r.x, r.y), fn]
-			try:
-				subprocess.check_call(cmd)
-			except:
-				print >> sys.stderr, "Error executing command %r:" % cmd
-				import traceback
-				traceback.print_exc()
-		#FIXME: Update model
+		# Copy from remote to local
+		#FIXME: Better feedback when using gnomevfs
+		fname = None
+		def _copyhere_cb(_, info, data):
+			if info.phase == gnomevfs.XFER_PHASE_COMPLETED:
+				_copyhere()
+			return True
+		def _copyhere():
+			cmd_start = ['convert', fname]
+			#FIXME: Ask if there's conflicts
+			for fn, box in ((r[0],r[1]) for r in self.model):
+				print "fn:", fn
+				if gnomevfs is not None:
+					# fn is a gnomevfs URI, make tmp file
+					uri = fn
+					fn = mktemp(fn)
+				#FIXME: Limit to image size
+				r= box.rect
+				cmd = cmd_start+['-crop', '%ix%i+%i+%i' % (r.width, r.height, r.x, r.y), fn]
+				print "cmd:", cmd
+				try:
+					subprocess.check_call(cmd)
+				except:
+					print >> sys.stderr, "Error executing command %r:" % cmd
+					import traceback
+					traceback.print_exc()
+			if gnomevfs is not None:
+				gnomevfs.async.xfer(
+					source_uri_list=[gnomevfs.URI(mktemp(r[0])) for r in self.model], 
+					target_uri_list=[gnomevfs.URI(r[0]) for r in self.model],
+					xfer_options=gnomevfs.XFER_DEFAULT,
+					error_mode=gnomevfs.XFER_ERROR_MODE_ABORT,
+					overwrite_mode=gnomevfs.XFER_OVERWRITE_MODE_REPLACE,
+					progress_update_callback=(lambda _, info, data: True),
+					update_callback_data=None,
+#					progress_sync_callback=(lambda info, data: True),
+#	`				sync_callback_data=0x1234,
+					)
+			#FIXME: Update model
+		if gnomevfs is None:
+			fname = self.filename
+			_copyhere()
+		else:
+			fname = mktemp(self.filename)
+			gnomevfs.async.xfer(
+				source_uri_list=[gnomevfs.URI(self.filename)], 
+				target_uri_list=[gnomevfs.URI(fname)],
+				xfer_options=gnomevfs.XFER_DEFAULT,
+				error_mode=gnomevfs.XFER_ERROR_MODE_ABORT,
+				overwrite_mode=gnomevfs.XFER_OVERWRITE_MODE_REPLACE,
+				progress_update_callback=_copyhere_cb,
+				update_callback_data=None,
+#				progress_sync_callback=(lambda info, data: True),
+#				sync_callback_data=0x1234,
+				)
 	
 	@action(stock='gtk-quit')
 	def Quit(self):
