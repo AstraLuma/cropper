@@ -135,8 +135,13 @@ class ImageSpace(gtk.Widget):
 		'size-request' : 'override',
 #		'query-tooltip': 'override',
 		}
+	def _set_zoom(self, value):
+			type(self).zoom._default_setter(self, value)
+			self.queue_resize()
 	zoom = gprop(
 		type=gobject.TYPE_DOUBLE,
+		getter=Ellipsis,
+		setter=_set_zoom,
 		nick='view zoom',
 		blurb='the amount of zoom. 1.0 is normal',
 		minimum=0.0,
@@ -144,8 +149,13 @@ class ImageSpace(gtk.Widget):
 		default=1.0,
 		flags=gobject.PARAM_READWRITE
 		)
+	def _set_image(self, value):
+			type(self).image._default_setter(self, value)
+			self.queue_resize()
 	image = gprop(
 		type=gtk.gdk.Pixbuf,
+		getter=Ellipsis,
+		setter=_set_image,
 		nick='the image to draw',
 		blurb='the background image',
 		flags=gobject.PARAM_CONSTRUCT|gobject.PARAM_READWRITE
@@ -347,9 +357,7 @@ class ImageSpace(gtk.Widget):
 		# The do_size_request method Gtk+ is calling on a widget to ask
 		# it the widget how large it wishes to be. It's not guaranteed
 		# that gtk+ will actually give this size to the widget
-
-		# In this case, we say that we want to be as big as the
-		# text is, plus a little border around it.
+		
 		if self.image is not None:
 			requisition.width = self._image.get_width() * self.zoom
 			requisition.height = self._image.get_height() * self.zoom
@@ -357,7 +365,7 @@ class ImageSpace(gtk.Widget):
 	def do_size_allocate(self, allocation):
 		# The do_size_allocate is called by when the actual size is known
 		# and the widget is told how much space could actually be allocated
-
+		
 		#Save the allocated space
 		self.allocation = allocation
 		# If we're realized, move and resize the window to the
