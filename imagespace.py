@@ -732,7 +732,7 @@ class ImageSpace(gtk.Widget):
 			state = event.state
 		
 		# Update box underneath cursor, for tooltip
-		icoords = self.widget2imgcoords(x,y)
+		ix, iy = icoords = self.widget2imgcoords(x,y)
 		if self._update_boxes(*icoords):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
@@ -745,8 +745,20 @@ class ImageSpace(gtk.Widget):
 			#self.queue_draw_area(*redraw)
 			self.queue_draw()
 			self.emit('insert-box-changed', self._temporary_box)
-		elif self._box_are_resizing is not None:
-			pass
+		elif self._box_are_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
+			d = self._box_are_resizing_dir
+			b = self._box_are_resizing
+			obox = frect(*b.rect)
+			if 'W' in d:
+				b.x, b.width = round(ix), round(b.x + b.width - ix)
+			elif 'E' in d:
+				b.width = round(ix - b.x)
+			if 'N' in d:
+				b.y, b.height = round(iy), round(b.y + b.height - iy)
+			elif 'S' in d:
+				b.height = round(iy - b.y)
+			print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
+			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
 				gtk.gdk.BUTTON5_MASK): # Hover
@@ -765,8 +777,10 @@ class ImageSpace(gtk.Widget):
 		# make sure it was the first button
 		if event.button == 1:
 			if self._box_may_resize is not None:
+				print "Start resize"
+				# FIXME: Calculate offset
 				self._box_are_resizing = self._box_may_resize
-				
+				self._box_are_resizing_dir = self._box_may_resize_dir
 			elif self.mode == self.INSERT:
 				# Begin new box
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
@@ -784,6 +798,7 @@ class ImageSpace(gtk.Widget):
 		# make sure it was the first button
 		if event.button == 1:
 			if self._box_are_resizing is not None:
+				print "Stop resize"
 				self._box_are_resizing = self._box_may_resize = None
 				self._box_are_resizing_dir = self._box_may_resize_dir = None
 			elif self.mode == self.INSERT:

@@ -7,7 +7,7 @@ Some utilities for dealing with rectangles
 from __future__ import division, absolute_import, with_statement
 import gtk
 __all__ = ('rect_contains', 'slice_diff', 'slice_len', 'slice_contains', 
-	'slice_diff_max', 'rect_diff', 'pt2rect', 'frect')
+	'slice_diff_max', 'rect_diff', 'pt2rect', 'frect', 'union')
 
 def frect(x,y,w,h):
 	_ = lambda n: int(round(n))
@@ -123,6 +123,10 @@ def rect_diff(rect1, rect2, preferred=None):
 		rv = frect(dx.start, dy.start, dx.stop - dx.start, dy.stop - dy.start)
 #	print 'rect_diff: %r - %r (%r,%r)= %r' % (tuple(rect1), tuple(rect2), px,py, 'None' if rv is None else tuple(rv))
 	return rv
+
+def union(r1, r2):
+	return frect(min(r1.x, r2.x), min(r1.y, r2.y), 
+		max(r1.x+r1.width, r2.x+r2.width), max(r1.y+r1.height, r2.y+r2.height))
 
 def pt2rect(*pargs):
 	"""

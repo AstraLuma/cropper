@@ -62,8 +62,8 @@ class Cropper(Actor, GladeWindow):
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
 		self.model = BoxListStore()
-		self.model.exist_image = 'gtk-file'
-		self.model.no_exist_image = 'gtk-cancel'
+		self.model.exist_image = 'filesave'
+		self.model.no_exist_image = 'filenew'
 		
 		self.tvAreas.set_model(self.model)
 		self.tvAreas.get_selection().set_mode(gtk.SELECTION_MULTIPLE)
