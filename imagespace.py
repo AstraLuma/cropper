@@ -121,8 +121,6 @@ def iconview_rubber_band(widget, rect, cr):
 class ImageSpace(gtk.Widget):
 	"""
 	Displays an image and allows the user to draw boxes over it.
-	
-	TODO: Add Special Modes
 	"""
 	# Constants
 	SELECT, INSERT = MODES = range(2) #map(ImageSpaceModes, xrange(2))

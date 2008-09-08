@@ -5,7 +5,7 @@ from box import Box
 from modelhelpers import GenericTreeStore
 #from gobject.propertyhelper import property as gprop
 from usefulgprop import property as gprop
-from utils import make_absolute
+from vfsutils import make_absolute
 try:
 	import gnomevfs
 except ImportError:

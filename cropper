@@ -26,7 +26,7 @@ from actor import Actor, action
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
-from utils import make_absolute
+from vfsutils import make_absolute
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
 #                  help="write report to FILE", metavar="FILE")
