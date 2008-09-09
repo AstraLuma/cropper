@@ -9,6 +9,10 @@ __all__ = 'Box',
 class Box(gobject.GObject):
 	"""
 	Similar to gtk.gdk.Rectangle, but also has a color associated with it.
+	
+	For whatever reason, modifying the rectangle directly seems to fail 
+	silently. What you need to do is copy the rect property, make your changes, 
+	and assign the new rect object.
 	"""
 	rect = gprop(
 		type=gtk.gdk.Rectangle,
