@@ -357,8 +357,8 @@ class ImageSpace(gtk.Widget):
 		# that gtk+ will actually give this size to the widget
 		
 		if self.image is not None:
-			requisition.width = self._image.get_width() * self.zoom
-			requisition.height = self._image.get_height() * self.zoom
+			requisition.width = self.image.get_width() * self.zoom
+			requisition.height = self.image.get_height() * self.zoom
 	
 	def do_size_allocate(self, allocation):
 		# The do_size_allocate is called by when the actual size is known
