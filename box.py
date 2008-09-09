@@ -28,7 +28,7 @@ class Box(gobject.GObject):
 	width = gprop(
 		type=gobject.TYPE_INT,
 		getter=(lambda self: self.rect.width),
-		setter=(lambda self, value: setattr(self.rect,'width', value) if self.rect else None),
+		setter=(lambda self, value: setattr(self.rect,'width', value) if self.rect is not None else None),
 		nick='width of the box',
 		blurb='the width of the box in pixels',
 		default=0,
@@ -37,7 +37,7 @@ class Box(gobject.GObject):
 	height = gprop(
 		type=gobject.TYPE_INT,
 		getter=(lambda self: self.rect.height),
-		setter=(lambda self, value: setattr(self.rect,'height', value) if self.rect else None),
+		setter=(lambda self, value: setattr(self.rect,'height', value) if self.rect is not None else None),
 		nick='height of the box',
 		blurb='the height of the box in pixels',
 		default=0,
@@ -46,7 +46,7 @@ class Box(gobject.GObject):
 	x = gprop(
 		type=gobject.TYPE_INT,
 		getter=(lambda self: self.rect.x),
-		setter=(lambda self, value: setattr(self.rect,'x', value) if self.rect else None),
+		setter=(lambda self, value: setattr(self.rect,'x', value) if self.rect is not None else None),
 		nick='',
 		blurb='',
 		default=0,
@@ -55,7 +55,7 @@ class Box(gobject.GObject):
 	y = gprop(
 		type=gobject.TYPE_INT,
 		getter=(lambda self: self.rect.y),
-		setter=(lambda self, value: setattr(self.rect,'y', value) if self.rect else None),
+		setter=(lambda self, value: setattr(self.rect,'y', value) if self.rect is not None else None),
 		nick='',
 		blurb='',
 		default=0,
@@ -64,7 +64,7 @@ class Box(gobject.GObject):
 	pixel = gprop(
 		type=gobject.TYPE_ULONG,
 		getter=(lambda self: self.color.pixel),
-		setter=(lambda self, value: setattr(self.color,'pixel', value) if self.color else None),
+		setter=(lambda self, value: setattr(self.color,'pixel', value) if self.color is not None else None),
 		nick='',
 		blurb='',
 		minimum=0,
@@ -75,7 +75,7 @@ class Box(gobject.GObject):
 	red = gprop(
 		type=gobject.TYPE_UINT,
 		getter=(lambda self: self.color.red),
-		setter=(lambda self, value: setattr(self.color,'red', value) if self.color else None),
+		setter=(lambda self, value: setattr(self.color,'red', value) if self.color is not None else None),
 		nick='',
 		blurb='',
 		minimum=0,
@@ -86,7 +86,7 @@ class Box(gobject.GObject):
 	green = gprop(
 		type=gobject.TYPE_UINT,
 		getter=(lambda self: self.color.green),
-		setter=(lambda self, value: setattr(self.color,'green', value) if self.color else None),
+		setter=(lambda self, value: setattr(self.color,'green', value) if self.color is not None else None),
 		nick='',
 		blurb='',
 		minimum=0,
@@ -97,7 +97,7 @@ class Box(gobject.GObject):
 	blue = gprop(
 		type=gobject.TYPE_UINT,
 		getter=(lambda self: self.color.blue),
-		setter=(lambda self, value: setattr(self.color,'blue', value) if self.color else None),
+		setter=(lambda self, value: setattr(self.color,'blue', value) if self.color is not None else None),
 		nick='',
 		blurb='',
 		minimum=0,
@@ -110,6 +110,11 @@ class Box(gobject.GObject):
 		gobject.GObject.__init__(self)
 		self.rect = rect if rect is not None else gtk.gdk.Rectangle()
 		self.color = color if color is not None else gtk.gdk.Color()
+#		self.connect('notify::rect', lambda o,p: sys.stdout.write("Rect changed: %r %r\n" % (o.rect, list(o.rect))))
+#		self.connect('notify::x', lambda o,p: sys.stdout.write("X changed: %r %r\n" % (o.rect, list(o.rect))))
+#		self.connect('notify::y', lambda o,p: sys.stdout.write("Y changed: %r %r\n" % (o.rect, list(o.rect))))
+#		self.connect('notify::width', lambda o,p: sys.stdout.write("Width changed: %r %r\n" % (o.rect, list(o.rect))))
+#		self.connect('notify::height', lambda o,p: sys.stdout.write("Height changed: %r %r\n" % (o.rect, list(o.rect))))
 	
 	def _rect_notify(self,obj,prop):
 		if obj is self.rect and prop.name in ('x','y','width','height'):

@@ -323,6 +323,7 @@ class Cropper(Actor, GladeWindow):
 					import traceback
 					traceback.print_exc()
 			if gnomevfs is not None:
+				print "Copy back"
 				gnomevfs.async.xfer(
 					source_uri_list=[gnomevfs.URI(mktemp(r[0])) for r in self.model], 
 					target_uri_list=[gnomevfs.URI(r[0]) for r in self.model],
@@ -334,7 +335,8 @@ class Cropper(Actor, GladeWindow):
 #					progress_sync_callback=(lambda info, data: True),
 #	`				sync_callback_data=0x1234,
 					)
-			#FIXME: Update model
+			# Update the model
+			self.model.foreach(BoxListStore.row_changed)
 		if gnomevfs is None:
 			fname = self.filename
 			_copyhere()

@@ -599,15 +599,15 @@ class ImageSpace(gtk.Widget):
 				dir += 'S'
 			if box.width < range*2:
 				# Skinny!
-				dir = 'W' if x - box.x < box.x+box.width - x else 'E'
+				dir += 'W' if x - box.x < box.x+box.width - x else 'E'
 			elif x - box.x <= range:
-				dir = 'W'
+				dir += 'W'
 			elif box.x+box.width - x <= range:
-				dir = 'E'
+				dir += 'E'
 #			print "find_boxes_coord_near: box, dir: (%r,%r) %r, %r    \r" % (x,y,box, dir),
 			sys.stdout.flush()
 			if len(dir):
-				yield box, intern(dir)
+				yield box, (dir)
 	
 	def _model_changed(self, model, path, iter=None):
 		self._changed_rect = None
@@ -754,16 +754,18 @@ class ImageSpace(gtk.Widget):
 		elif self._box_are_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
 			d = self._box_are_resizing_dir
 			b = self._box_are_resizing
+			r = frect(*b.rect)
 			obox = frect(*b.rect)
 			if 'W' in d:
-				b.x, b.width = round(ix), round(b.x + b.width - ix)
+				r.x, r.width = round(ix), round(r.x + r.width - ix)
 			elif 'E' in d:
-				b.width = round(ix - b.x)
+				r.width = round(ix - r.x)
 			if 'N' in d:
-				b.y, b.height = round(iy), round(b.y + b.height - iy)
+				r.y, r.height = round(iy), round(r.y + r.height - iy)
 			elif 'S' in d:
-				b.height = round(iy - b.y)
-			print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
+				r.height = round(iy - r.y)
+			b.rect = r
+#			print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
 			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
