@@ -161,9 +161,24 @@ class Deferred(object):
 	def __init__(self):
 		self.callbacks = []
 		if self.debug:
-		    self._debugInfo = DebugInfo()
-		    self._debugInfo.creator = traceback.format_stack()[:-1]
-
+			self._debugInfo = DebugInfo()
+			self._debugInfo.creator = traceback.format_stack()[:-1]
+	
+	_cancel_func = None
+	
+	def _set_cancel_call(self, func, *pargs, **kwargs):
+		if self._cancel_func is not None:
+			raise ValueError, "Only one cancel func per Deferred."
+		self._cancel_func = func, pargs, kwargs
+	
+	def cancel(self):
+		"""d.cancel() -> None
+		Cancels the backing operation. No callbacks or errbacks will be called.
+		"""
+		self.pause()
+		if self._cancel_func is not None:
+			self._cancel_func[0](*self._cancel_func[1], **self._cancel_func[2])
+	
 	def addCallbacks(self, callback, errback=None,
 	                 callbackArgs=None, callbackKeywords=None,
 	                 errbackArgs=None, errbackKeywords=None):
@@ -225,7 +240,7 @@ class Deferred(object):
 		"""
 		return self.addCallbacks(d.callback, d.errback)
 
-	def callback(self, result):
+	def callback(self, *result):
 		"""Run all success callbacks that have been added to this Deferred.
 
 		Each callback will have its result passed as the first
@@ -310,7 +325,7 @@ class Deferred(object):
 				args = args or ()
 				kw = kw or {}
 				try:
-					self.result = callback(self.result, *args, **kw)
+					self.result = callback(*(self.result+args), **kw)
 					if isinstance(self.result, Deferred):
 						self.callbacks = cb
 
