@@ -1,56 +1,28 @@
 #-*- coding: utf-8 -*-
 """
-Defines a class which allows for easy use of Glade. Based on SubIM.
+Defines a class which allows for easy use of GtkBuilder. Based on SubIM.
 """
 ## (c) 2007 James Bliss <http://www.astro73.com/>
 ## This code is freely usable and modifiable for any purpose with these 
 ## conditions:
 ##  1. This notice remains here
 ##  2. You send me a note that you're using it. I just like to know.
-__all__ = 'GladeWindow', 'CustomWidget', 'resource'
+import gtk
+__all__ = 'BuilderWindow', 'resource'
 
-# Stores the global typedict, updated by the decorator
-_glade_typedict = {}
-
-def CustomWidget(widget):
-	"""CustomWidget(thing) -> thing
-	Registers a class as a custom widget. Usable as a function decorator or a 
-	metaclass.
-	Example:
-	  @CustomWidget
-	  def SpamWidget(...):
-	      ...
-	
-	If a string is given, it returns a callable, ie:
-	  @CustomWidget("Spam")
-	  def SpamWidget(...):
-	      ...
+class BuilderWindow(object):
 	"""
-	def _(w):
-		global _glade_typedict
-		_glade_typedict[name] = w
-		return w
-	if isinstance(widget, basestring):
-		name = widget
-		return _
-	else:
-		name = widget.__name__
-		_(widget)
-		return widget
-
-class GladeWindow(object):
-	"""
-	Inherit from this in order to get some cool Glade automagick.
+	Inherit from this in order to get some cool GtkBuilder automagick.
 	
 	Set the __roots__ class property to a list of names of the root widgets to 
 	load. If unset, all widgets are loaded
 	
 	For all controls in the XML, a property matching their ID is assigned to it.
 	ie, if you have a control with id="MyButton", then 
-	MyApp("myui.glade").MyButton would be that button.
+	MyApp("myui.xml").MyButton would be that button.
 	
 	Properties:
-	 * _xml - The gtk.glade.XML instance from which our widgets were loaded.
+	 * _builder - The gtk.Builder instance from which our widgets were loaded.
 	
 	This class is not multiple-inheritance safe:
 	 * super() is used
@@ -58,30 +30,24 @@ class GladeWindow(object):
 	 * super().__new__() is called with no arguments
 	"""
 	
-	__roots__ = ()
-	__slots__ = '_xml','__dict__','__weakref__'
-	def __listWidgets(self, root):
-		"""
-		Grabs the names of all the widgets and sets a property to that name.
-		"""
-		import gtk.glade
-		print 'GladeWindow.__listWidgets()'
-		if not hasattr(root, 'get_children'): return
-		for c in root.get_children():
-			n = gtk.glade.get_widget_name(c)
-			if n is None: 
-				continue # Wasn't an XML child
-			setattr(self, n, c)
-			self.__listWidgets(c)
+	__roots__ = None
+	__slots__ = '_builder','__dict__','__weakref__'
 	
-	def __new__(cls, fname, root="", domain="", typedict={}, *pargs, **kwargs):
-		"""GladeWindow(fname, root="", domain="", typedict={}) -> GladeWindow
-		The arguments are passed directly to gtk.glade.XML. The documentation 
-		(from <http://pygtk.org/docs/pygtk/class-gladexml.html#constructor-gladexml>):
+	def __getattr__(self, name):
+		val = None
+		if self._builder:
+			val = self._builder.get_object(name)
+		if val is not None:
+			setattr(self, name, val)
+			return val
+		else:
+			raise AttributeError, "%r object has no attribute %r" % (type(self).__name__, name)
+	
+	def __new__(cls, fname, domain=None, *pargs, **kwargs):
+		"""BuilderWindow(fname, root="", domain="") -> BuilderWindow
 		 * fname : the XML file name
-		 * root : the widget node in fname to start building from (or "")
+		 * root : the widget node in fname to start building from
 		 * domain : the translation domain for the XML file (or "" for default)
-		 * typedict : A dictionary used to lookup types (or {} for default)
 		
 		Note that when possible, root is filled in automatically (ie, when 
 		__roots__ is 1 item.)
@@ -89,39 +55,18 @@ class GladeWindow(object):
 		If you need to perform initialization, define an __init__() method. It
 		will be called after the XML is loaded, events connected, etc.
 		"""
-		print 'GladeWindow.__new__()'
-		import gtk.glade
+		print 'BuilderWindow.__new__()'
 		
-		self = super(GladeWindow,cls).__new__(cls, fname=fname, root=root, domain=domain, typedict=typedict, *pargs, **kwargs)
-		
-		# Get the typedict
-		td = _glade_typedict.copy()
-		td.update(typedict)
+		self = super(BuilderWindow,cls).__new__(cls, fname=fname, domain=domain, *pargs, **kwargs)
 		
 		# Get the XML
-		if len(cls.__roots__) == 1 and root == "":
-			root = cls.__roots__[0]
-		self._xml = gtk.glade.XML(fname,root,domain,td)
+		self._builder = gtk.Builder()
+		if domain:
+			self._builder.set_translation_domain(domain)
+		self._builder.add_from_file(fname)
 		
 		# Connect events
-		self._xml.signal_autoconnect(self)
-		
-		# Set widget properties
-		roots = cls.__roots__
-		if len(roots) > 0:
-			for r in roots:
-				w = self._xml.get_widget(r)
-				setattr(self, r, w)
-				self.__listWidgets(w) # Initialize all the props
-		else:
-			for w in self._xml.get_widget_prefix(''):
-				n = gtk.glade.get_widget_name(w)
-				if n is None: 
-					continue # Wasn't an XML child (???)
-				setattr(self, n, w)
-				# Don't call __listWidgets() because get_widget_prefix() will
-				# return everything
-		
+		self._builder.connect_signals(self)
 		return self
 
 class ResourceNotFoundWarning(Warning):
@@ -153,6 +98,7 @@ def resource(fn,sec="share", appname=None):
 	* /usr/<section>/<appname>
 	* /opt/<section>/<appname>
 	* /<section>/<appname>
+	* ~/.local/<section>/<appname>
 	* <script dir>/../<section>/<appname>
 	* <script dir>/<section>/<appname>
 	* ../<section>/<appname>
@@ -184,6 +130,7 @@ def resource(fn,sec="share", appname=None):
 			'/'+os.path.join('usr', sec, appname),
 			'/'+os.path.join('opt', sec, appname),
 			'/'+os.path.join(sec, appname),
+			os.path.join(os.path.expanduser('~'), '.local', sec, appname),
 			# Relative to the script
 			os.path.join(os.path.dirname(script), os.pardir, sec, appname),
 			os.path.join(os.path.dirname(script), sec, appname),

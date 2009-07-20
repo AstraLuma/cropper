@@ -5,24 +5,27 @@ cropper [file]
 
 An app to easily crop an image into multiple pieces.
 """
+#TODO: Add preferences:
+# * List of box colors
+# * Alpha level
+# * Allow overlapping?
+# * Outside box handling: Disallow (bound), Ignore, Pad
+#TODO: Add file drag&drop
 from __future__ import with_statement, division, absolute_import
-import pygtk
-pygtk.require('2.0')
 import gtk, gobject
 #gtk.gdk.threads_init()
 #gobject.threads_init()
-import gtk.glade, pango
+import pango
 try:
 	import gnomevfs
 except ImportError:
 	gnomevfs = None
 else:
 	import gnomevfs.async
-from glade import GladeWindow, resource
+from gbuilder import BuilderWindow, resource
 from box import Box
 from boxmodel import BoxListStore
 from imagespace import ImageSpace
-from actor import Actor, action
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
@@ -56,11 +59,12 @@ def permIter(seq):
 			for rest in rest_iter:
 				yield element_slice + rest
 
-class Cropper(Actor, GladeWindow):
+class Cropper(BuilderWindow):
 	window = property(lambda self: self.wCropper)
 	filename = None
 	def __init__(self, options, args, *pargs, **kwargs):
 		print 'Cropper.__init__()'
+		#TODO: Put all of this into GtkBuilder
 		self.model = BoxListStore()
 		self.model.exist_image = 'filesave'
 		self.model.no_exist_image = 'filenew'
@@ -109,7 +113,7 @@ class Cropper(Actor, GladeWindow):
 #		return False
 	
 	def present(self):
-		self.preshow()
+#		self.preshow()
 		self.wCropper.show_all()
 		self.wCropper.present()
 	
@@ -170,85 +174,32 @@ class Cropper(Actor, GladeWindow):
 			params += [k,v]
 		self.vbContent.add_with_properties(self.tbTools, *params)
 
-	__ui__ = """
-<ui>
-	<menubar>
-		<menu action="File">
-			<menuitem action="Open" />
-			<menuitem action="Crop" />
-			<separator/>
-			<menuitem action="Quit" />
-		</menu>
-		<menu action="Edit">
-			<!--menuitem action="Undo"/>
-			<menuitem action="Redo"/-->
-			<separator />
-			<menuitem action="Cut"/>
-			<menuitem action="Copy"/>
-			<menuitem action="Paste"/>
-			<menuitem action="Delete"/>
-			<menuitem action="Clear"/>
-			<separator />
-			<menuitem action="EditPreferences"/>
-		</menu>
-		<menu action="View">
-			<menuitem action="ZoomIn" />
-			<menuitem action="ZoomOut" />
-			<menuitem action="ZoomNormal" />
-			<menuitem action="ZoomFit" />
-		</menu>
-		<menu action="Help">
-			<menuitem action="About" />
-		</menu>
-	</menubar>
-	<toolbar action="toolbar">
-		<toolitem action="Open"/>
-		<toolitem action="Crop"/>
-		<separator/>
-		<toolitem action="Delete"/>
-		<toolitem action="Clear"/>
-		<separator/>
-		<separator/>
-		<toolitem action="Add"/>
-		<toolitem action="Select"/>
-	</toolbar>
-	<!-- Why??? -->
-	<accelerator action="Add"/>
-	<accelerator action="Select"/>
-</ui>
-"""
-	# :p menus
-	@action(stock='cropper-file', image=None, label='_File')
-	def File(self): pass
-	@action(stock='cropper-edit', image=None, label='_Edit')
-	def Edit(self): pass
-	@action(stock='cropper-view', image=None, label='_View')
-	def View(self): pass
-	@action(stock='cropper-help', image=None, label='_Help')
-	def Help(self): pass
+#########
+# ACTIONS
+#########
 	
-	@action(stock='gtk-open')
-	def Open(self, filename=None):
-		print 'Open: %r' % filename
-		if filename is None:
-			dlg = gtk.FileChooserDialog(parent=self.wCropper,
-				action=gtk.FILE_CHOOSER_ACTION_OPEN, 
-				buttons=(
-					gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-					gtk.STOCK_OPEN, gtk.RESPONSE_OK,
-					)
+	def Open(self, action):
+		print 'Open'
+		
+		dlg = gtk.FileChooserDialog(parent=self.wCropper,
+			action=gtk.FILE_CHOOSER_ACTION_OPEN, 
+			buttons=(
+				gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+				gtk.STOCK_OPEN, gtk.RESPONSE_OK,
 				)
-			dlg.set_use_preview_label(True)
-			dlg.set_select_multiple(False)
-			dlg.set_local_only(gnomevfs is None)
-			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
-				dlg.destroy()
-				return
-			if gnomevfs is None:
-				filename = dlg.get_filename()
-			else:
-				filename = dlg.get_uri()
+			)
+		dlg.set_use_preview_label(True)
+		dlg.set_select_multiple(False)
+		dlg.set_local_only(gnomevfs is None)
+		if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
 			dlg.destroy()
+			return
+		if gnomevfs is None:
+			filename = dlg.get_filename()
+		else:
+			filename = dlg.get_uri()
+		dlg.destroy()
+		
 		# Open image
 		self.model.clear()
 		self.filename = filename
@@ -292,8 +243,7 @@ class Cropper(Actor, GladeWindow):
 				img.read(BUFSIZE, _read)
 		img = gnomevfs.async.open(uri, _open, gnomevfs.OPEN_READ)
 	
-	@action(stock='gtk-save', label='Crop')
-	def Crop(self):
+	def Crop(self, action):
 		mktemp = lambda fn:os.path.join('/tmp', os.path.basename(fn))
 		print 'Crop'
 		# Copy from remote to local
@@ -354,88 +304,70 @@ class Cropper(Actor, GladeWindow):
 #				sync_callback_data=0x1234,
 				)
 	
-	@action(stock='gtk-quit')
-	def Quit(self):
+	def Quit(self, action):
 		self.wCropper.destroy()
 	
-	@action(stock='gtk-clear')
-	def Clear(self):
+	def Clear(self, action):
 		print 'Clear'
 		self.model.clear()
 	
-	@action(stock='gtk-cut', enabled=False)
-	def Cut(self):
+	def Cut(self, action):
 		print 'Cut'
 		pass
 	
-	@action(stock='gtk-copy', enabled=False)
-	def Copy(self):
+	def Copy(self, action):
 		print 'Copy'
 		pass
 	
-	@action(stock='gtk-paste', enabled=False)
-	def Paste(self):
+	def Paste(self, action):
 		print 'Paste'
 		pass
 	
-	@action(stock='gtk-delete', enabled=False)
-	def Delete(self):
+	def Delete(self, action):
 		print 'Delete'
 		model, rows = self.tvAreas.get_selection().get_selected_rows()
 		rows = map(model.get_iter, rows)
 		for row in rows:
 			model.remove(row)
 	
-	@action(stock='gtk-select-all')
-	def SelectAll(self):
+	def SelectAll(self, action):
 		self.tvAreas.get_selection().select_all()
 	
-	@action(stock='gtk-zoom-in', enabled=False)
-	def ZoomIn(self):
+	def ZoomIn(self, action):
 		pass
 	
-	@action(stock='gtk-zoom-out', enabled=False)
-	def ZoomOut(self):
+	def ZoomOut(self, action):
 		pass
 	
-	@action(stock='gtk-zoom-100')
-	def ZoomNormal(self):
+	def ZoomNormal(self, action):
 		self.isImage.zoom = 1.0
 	
-	@action(stock='gtk-zoom-fit')
-	def ZoomFit(self):
+	def ZoomFit(self, action):
 		self.isImage.zoom_to_size()
 	
-	@action(stock='cropper-flip-horizontal', theme='object-flip-horizontal', label='Flip _Horizontal', enabled=False)
-	def FlipHorizontal(self):
+	def FlipHorizontal(self, action):
 		pass
 	
-	@action(stock='cropper-flip-vertical', theme='object-flip-vertical', label='Flip _Vertical', enabled=False)
-	def FlipVertical(self):
+	def FlipVertical(self, action):
 		pass
 	
-	@action(stock='cropper-rotate-right', theme='object-rotate-right', label='Rotate Clockwise', shortlabel='Right', enabled=False)
-	def RotateCW(self):
+	def RotateCW(self, action):
 		pass
 	
-	@action(stock='cropper-rotate-left', theme='object-rotate-left', label='Rotate Counterclockwise', shortlabel='Left', enabled=False)
-	def RotateCCW(self):
+	def RotateCCW(self, action):
 		pass
 	
-	@action(stock='gtk-preferences', enabled=False)
-	def EditPreferences(self):
+	def EditPreferences(self, action):
 		pass
 	
-	@action(stock='cropper-auto-shrink', image=None, label='Auto Shrink')
-	def AutoShrink(self):
+	def AutoShrink(self, action):
 		# Shrink boxes to image size
 		pass
 	
-	@action(stock='gtk-about')
-	def About(self):
+	def About(self, action):
 		dlg = gtk.AboutDialog()
 		props = {
-#			'version': """$Revision$""",
+#			'version': """$Revision: 104 $""",
 			'name': 'cropper',
 			'logo-icon-name': 'image',
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
@@ -447,19 +379,19 @@ class Cropper(Actor, GladeWindow):
 		dlg.run()
 		dlg.destroy()
 	
-	@action(stock='cropper-add', radiogroup='editmode', theme='add', label='Add', accel='a', active=True)
-	def Add(self):
-		print "Add"
-		self.isImage.mode = ImageSpace.INSERT
+	def Add(self, action, value):
+		if action == value:
+			print "Add"
+			self.isImage.mode = ImageSpace.INSERT
 	
-	@action(stock='cropper-select', radiogroup='editmode', image='drag-resize.png', label='Select', accel='s')
-	def Select(self):
-		print "Select"
-		self.isImage.mode = ImageSpace.SELECT
+	def Select(self, action, value):
+		if action == value:
+			print "Select"
+			self.isImage.mode = ImageSpace.SELECT
 
 if __name__ == '__main__':
 	options, args = parser.parse_args(sys.argv[1:])
-	app = Cropper(fname=resource('cropper.glade'), root='wCropper', options=options, args=args)
+	app = Cropper(fname=resource('cropper.xml'), options=options, args=args)
 	
 #	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
 #	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')
