@@ -79,7 +79,7 @@ class Cropper(BuilderWindow):
 		self.isImage.next_color = gtk.gdk.color_parse('#A0F')
 		self.isImage.connect('box-added', self.on_box_added)
 #		self.isImage.connect('insert-box-changed', self.on_insert_box_changed)
-		self.swImage.add_with_viewport(self.isImage)
+		self.swImage.add(self.isImage)
 		
 		self.crpExists = gtk.CellRendererPixbuf()
 		self.crtFilename = gtk.CellRendererText()
@@ -105,7 +105,7 @@ class Cropper(BuilderWindow):
 		
 		if len(args):
 			print "args: %r" % args
-			self.Open(make_absolute(args[0]))
+			self.Open(None, file=make_absolute(args[0]))
 #		self.window.connect('key-press-event', self._keypress)
 	
 #	def _keypress(self, window, event):
@@ -178,27 +178,30 @@ class Cropper(BuilderWindow):
 # ACTIONS
 #########
 	
-	def Open(self, action):
+	def Open(self, action, **kwargs):
 		print 'Open'
 		
-		dlg = gtk.FileChooserDialog(parent=self.wCropper,
-			action=gtk.FILE_CHOOSER_ACTION_OPEN, 
-			buttons=(
-				gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
-				gtk.STOCK_OPEN, gtk.RESPONSE_OK,
-				)
-			)
-		dlg.set_use_preview_label(True)
-		dlg.set_select_multiple(False)
-		dlg.set_local_only(gnomevfs is None)
-		if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
-			dlg.destroy()
-			return
-		if gnomevfs is None:
-			filename = dlg.get_filename()
+		if 'file' in kwargs:
+			filename = kwargs['file']
 		else:
-			filename = dlg.get_uri()
-		dlg.destroy()
+			dlg = gtk.FileChooserDialog(parent=self.wCropper,
+				action=gtk.FILE_CHOOSER_ACTION_OPEN, 
+				buttons=(
+					gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+					gtk.STOCK_OPEN, gtk.RESPONSE_OK,
+					)
+				)
+			dlg.set_use_preview_label(True)
+			dlg.set_select_multiple(False)
+			dlg.set_local_only(gnomevfs is None)
+			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
+				dlg.destroy()
+				return
+			if gnomevfs is None:
+				filename = dlg.get_filename()
+			else:
+				filename = dlg.get_uri()
+			dlg.destroy()
 		
 		# Open image
 		self.model.clear()
@@ -334,15 +337,16 @@ class Cropper(BuilderWindow):
 		self.tvAreas.get_selection().select_all()
 	
 	def ZoomIn(self, action):
-		pass
+		self.isImage.zoom *= 1.1
 	
 	def ZoomOut(self, action):
-		pass
+		self.isImage.zoom /= 1.1
 	
 	def ZoomNormal(self, action):
 		self.isImage.zoom = 1.0
 	
 	def ZoomFit(self, action):
+		print "ZoomFit"
 		self.isImage.zoom_to_size()
 	
 	def FlipHorizontal(self, action):

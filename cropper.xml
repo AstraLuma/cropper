@@ -15,6 +15,7 @@
     <child>
       <object class="GtkVBox" id="vbContent">
         <property name="visible">True</property>
+        <property name="orientation">vertical</property>
         <child>
           <object class="GtkMenuBar" id="mbMenu">
             <property name="visible">True</property>
@@ -218,8 +219,8 @@
             <child>
               <object class="GtkToolButton" id="tbOpen">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">aOpen</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -231,8 +232,8 @@
             <child>
               <object class="GtkToolButton" id="tbCrop">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">aCrop</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -252,8 +253,8 @@
             <child>
               <object class="GtkToolButton" id="tbDelete">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">aDelete</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -265,8 +266,8 @@
             <child>
               <object class="GtkToolButton" id="tbClear">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">aClear</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -286,8 +287,8 @@
             <child>
               <object class="GtkRadioToolButton" id="rtbAdd">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">raAdd</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">radiotoolbutton1</property>
                 <property name="use_underline">True</property>
                 <property name="active">True</property>
@@ -300,8 +301,8 @@
             <child>
               <object class="GtkRadioToolButton" id="rtbSelect">
                 <property name="visible">True</property>
-                <property name="use_action_appearance">True</property>
                 <property name="related_action">raSelect</property>
+                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">radiotoolbutton1</property>
                 <property name="use_underline">True</property>
                 <property name="active">True</property>
@@ -344,8 +345,6 @@
               <object class="GtkScrolledWindow" id="swImage">
                 <property name="visible">True</property>
                 <property name="can_focus">True</property>
-                <property name="hscrollbar_policy">automatic</property>
-                <property name="vscrollbar_policy">automatic</property>
                 <child>
                   <placeholder/>
                 </child>
@@ -420,13 +419,11 @@
   <object class="GtkAction" id="aZoomIn">
     <property name="label">Zoom In</property>
     <property name="stock_id">gtk-zoom-in</property>
-    <property name="sensitive">False</property>
     <signal name="activate" handler="ZoomIn"/>
   </object>
   <object class="GtkAction" id="aZoomOut">
     <property name="label">Zoom Out</property>
     <property name="stock_id">gtk-zoom-out</property>
-    <property name="sensitive">False</property>
     <signal name="activate" handler="ZoomOut"/>
   </object>
   <object class="GtkAction" id="aZoom100">

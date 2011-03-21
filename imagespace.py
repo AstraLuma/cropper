@@ -7,7 +7,7 @@ change-rect debugger.
 """
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys, cairo
-from glade import CustomWidget
+#from glade import CustomWidget
 from rectutils import *
 from box import Box
 #from gobject.propertyhelper import property as gprop
@@ -118,6 +118,11 @@ def iconview_rubber_band(widget, rect, cr):
 #	#def __new__(cls, value); value must be int
 #	# Note that this requires calling some C-level functions and allocating a new GType
 
+def new_adj():
+	# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+	return gtk.Adjustment(0.0, 0.0, 0.0,
+	                      0.0, 0.0, 0.0)
+
 class ImageSpace(gtk.Widget):
 	"""
 	Displays an image and allows the user to draw boxes over it.
@@ -125,17 +130,18 @@ class ImageSpace(gtk.Widget):
 	# Constants
 	SELECT, INSERT = MODES = range(2) #map(ImageSpaceModes, xrange(2))
 	__gsignals__ = {
-		'box-added'    : (gobject.SIGNAL_RUN_LAST, gobject.TYPE_NONE, (Box,)),
-		'insert-box-changed': (gobject.SIGNAL_RUN_LAST|gobject.SIGNAL_ACTION, gobject.TYPE_NONE, (Box,)),
+		'box-added'    : (gobject.SIGNAL_RUN_LAST, None, (Box,)),
+		'insert-box-changed': (gobject.SIGNAL_RUN_LAST|gobject.SIGNAL_ACTION, None, (Box,)),
 		'realize'      : 'override',
 		'expose-event' : 'override',
 		'size-allocate': 'override',
 		'size-request' : 'override',
+		'set-scroll-adjustments': (gobject.SIGNAL_RUN_LAST, None, (gtk.Adjustment, gtk.Adjustment)),
 #		'query-tooltip': 'override',
 		}
 	def _set_zoom(self, value):
 			type(self).zoom._default_setter(self, value)
-			self.queue_resize()
+			self._changed_size()
 	zoom = gprop(
 		type=gobject.TYPE_DOUBLE,
 		getter=Ellipsis,
@@ -149,7 +155,7 @@ class ImageSpace(gtk.Widget):
 		)
 	def _set_image(self, value):
 			type(self).image._default_setter(self, value)
-			self.queue_resize()
+			self._changed_size()
 	image = gprop(
 		type=gtk.gdk.Pixbuf,
 		getter=Ellipsis,
@@ -237,6 +243,7 @@ class ImageSpace(gtk.Widget):
 	_model_listeners = None
 	_selection_listeners = None
 	_pbl_handlers = None # signal handles for PixbufLoader
+	_hadj = _vadj = None
 	
 	def __init__(self, image=None, model=None, box=1):
 #		print "__init__", self, image, model, color, rect
@@ -247,7 +254,7 @@ class ImageSpace(gtk.Widget):
 		self.box_col = box
 		self.next_color = gtk.gdk.color_parse('#0f0')
 		# Other attributes
-		self.cr = None
+		self._hadj = self._vadj = None
 		# other stuff
 		self._update()
 		self.connect('notify::zoom', 
@@ -272,6 +279,74 @@ class ImageSpace(gtk.Widget):
 		for l in self._selection_listeners:
 			selection.disconnect(l)
 		self._selection_listeners = ()
+	
+	def do_set_scroll_adjustments(self, hadj, vadj):
+		print "do_set_scroll_adjustments", hadj, vadj
+		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		if not hadj and self._hadj:
+			hadj = new_adj()
+		
+		if not vadj and self._vadj:
+			vadj = new_adj()
+		
+		if self._hadj and self._hadj != hadj:
+			self._hadj.disconnect(self._hadj_changed_id)
+		
+		if self._vadj and self._vadj != vadj:
+			self._vadj.disconnect(self._vadj_changed_id)
+		
+		hadj.lower = vadj.lower = 0
+		
+		need_adjust = False
+		
+		if self._hadj != hadj:
+			self._hadj = hadj
+			self._hadj_changed_id = hadj.connect(
+				"value-changed",
+				self._adjustment_changed)
+			need_adjust = True
+		
+		if self._vadj != vadj:
+			self._vadj = vadj
+			self._vadj_changed_id = vadj.connect(
+				"value-changed",
+				self._adjustment_changed)
+			need_adjust = True
+		
+		if need_adjust and vadj and hadj:
+			self._changed_size()
+			self._adjustment_changed()
+	
+	def _adjustment_changed(self, adj=None):
+		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		if self.flags() & gtk.REALIZED:
+			# Update some variables and redraw
+			pass
+	
+	def _changed_size(self):
+		"""
+		Do things like update scrollbars and queue resize for ourselves and parent.
+		"""
+		h,v = self._hadj, self._vadj
+		alloc = self.allocation if self.flags() & gtk.REALIZED else None
+		if h:
+			if self.image is not None:
+				h.upper = self.image.get_width()
+				if alloc is not None:
+					h.page_size = alloc.width / self.zoom
+					print "h.page_size =", h.page_size
+			else:
+				h.upper = 0
+		if v:
+			if self.image is not None:
+				v.upper = self.image.get_height()
+				if alloc is not None:
+					v.page_size = alloc.height / self.zoom
+			else:
+				v.upper = 0
+		if self.flags() & gtk.REALIZED:
+			self.parent.queue_resize()
+			self.queue_resize()
 	
 	def loadfrompixbuf(self, pbloader):
 		"""is.loadfrompixbuf(PixbufLoader) -> None
@@ -338,10 +413,6 @@ class ImageSpace(gtk.Widget):
 		self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
 		#self.connect("motion_notify_event", self.do_motion_notify_event)
 #		self.connect("query-tooltip", self.do_query_tooltip_event)
-		try:
-			self.cr = self.window.cairo_create()
-		except AttributeError:
-			self.cr = None
 		#self.set_tooltip_text('spam&eggs')
 	
 	def do_unrealize(self):
@@ -377,53 +448,28 @@ class ImageSpace(gtk.Widget):
 		"""
 		if self.image is None or self.allocation is None:
 			return
-		self.zoom = min(
+		print self.allocation.width, self.image.get_width()
+		print self.allocation.width, self.image.get_width(), self.allocation.width/self.image.get_width()
+		z = min(
 			self.allocation.width/self.image.get_width(),
 			self.allocation.height/self.image.get_height()
 			)
+		print "zoom_to_size", "z=", z
+		self.zoom = z
 		if self.flags() & gtk.REALIZED:
 			self.queue_draw_area(*self.allocation)
-
 	
+	
+	SELECTSIZE = 2.0
+	TEMP_IS_SELECTED = False
 	def do_expose_event(self, event):
 		# The do_expose_event is called when the widget is asked to draw itself
 		# Remember that this will be called a lot of times, so it's usually
 		# a good idea to write this code as optimized as it can be, don't
 		# create any resources in here.
 		
-		if self.cr is None:
-			return self._expose_gdk(event)
-		else:
-			# For w/e reason, this has to be created every time
-			self.cr = self.window.cairo_create()
-			return self._expose_cairo(event)
-	
-	def _expose_gdk(self, event):
-		z = self.zoom
-		# Draw image
-		if self.image is not None:
-			# Center
-			dx = (self.allocation.width - self.image.get_width()*z) // 2
-			dy = 0
-			self.window.draw_pixbuf(self.gc, self._scaled,
-				0,0,
-				dx,dy)
-		
-		# Draw boxes on top of it
-		gc = self.window.new_gc()
-		gc.copy(self.gc)
-		def draw_box(model, path, row, self):
-			box = model.get(row, int(self.box_col))
-			rect = box.rect
-			draw_alpha_rectangle_gdk(self.window, gc, box.color, True, 
-				rect.x*z, rect.y*z, (rect.width+1)*z, (rect.height+1)*z, self.alpha)
-		if self.model is not None:
-			self.model.foreach(draw_box, self)
-	
-	SELECTSIZE = 2.0
-	TEMP_IS_SELECTED = False
-	def _expose_cairo(self, event):
-		cr = self.cr
+		# For w/e reason, this has to be created every time
+		cr = self.window.cairo_create()
 		alloc = self.allocation
 		img = self.image
 		z = self.zoom
@@ -435,6 +481,9 @@ class ImageSpace(gtk.Widget):
 		else:
 			dx = alloc.width / 2
 			dy = alloc.height / 2
+		print "dx,dy=", (dx, dy)
+		if img is not None:
+			print "img=", (img.get_width(), img.get_height())
 		cr.translate(dx,dy)
 		cr.scale(z, z)
 		linewidth = 1.0/z
@@ -852,11 +901,22 @@ class ImageSpace(gtk.Widget):
 					selection.unselect_all()
 					for r in rows: 
 						selection.select_iter(r)
-				
+	
+	# This should probably be in the application, not the widget
+	def do_scroll_event(self, event):
+		"""
+		Zooms in or out
+		"""
+		if event.state & gtk.gdk.CONTROL_MASK:
+			if event.direction == gtk.gdk.SCROLL_UP:
+				self.zoom *= 1.1
+			elif event.direction == gtk.gdk.SCROLL_DOWN:
+				self.zoom /= 1.1
+	
 	
 	def do_box_added(self, box):
 		print "box-added", self, box
-CustomWidget(ImageSpace)
+#CustomWidget(ImageSpace)
 
 if __name__ == "__main__":
 	from box import Box
