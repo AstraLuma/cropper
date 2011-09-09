@@ -147,7 +147,7 @@ class ImageSpace(gtk.Widget):
 		getter=Ellipsis,
 		setter=_set_zoom,
 		nick='view zoom',
-		blurb='the amount of zoom. 1.0 is normal',
+		blurb='the amount of zoom. 1.0 is normal. Larger numbers mean bigger image.',
 		minimum=0.0,
 		maximum=10.0, # A really big number
 		default=1.0,
@@ -473,6 +473,7 @@ class ImageSpace(gtk.Widget):
 		alloc = self.allocation
 		img = self.image
 		z = self.zoom
+		
 		# Do some translation
 		if img is not None:
 			# Center
@@ -585,8 +586,8 @@ class ImageSpace(gtk.Widget):
 		x -= self.allocation.width / 2
 		y -= self.allocation.height / 2
 		# Scale
-		x *= self.zoom
-		y *= self.zoom
+		x /= self.zoom
+		y /= self.zoom
 		# Change to Image's origin
 		if self.image is not None:
 			x += self.image.get_width() * self.zoom / 2
@@ -788,6 +789,8 @@ class ImageSpace(gtk.Widget):
 		
 		# Update box underneath cursor, for tooltip
 		ix, iy = icoords = self.widget2imgcoords(x,y)
+		sys.stdout.write(repr(icoords)+'\r')
+		sys.stdout.flush()
 		if self._update_boxes(*icoords):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
@@ -924,15 +927,15 @@ if __name__ == "__main__":
 	win = gtk.Window()
 	win.set_border_width(5)
 	win.set_title('Widget test')
-	win.connect('delete-event', gtk.main_quit)
-	win.connect('size-allocate', lambda *p: w.zoom_to_size())
+	win.connect('delete_event', gtk.main_quit)
+#	win.connect('size_allocate', lambda *p: w.zoom_to_size())
 	
 	frame = gtk.Frame("Example frame")
 	win.add(frame)
 	
 	bls = BoxListStore()
-	bls.append(['', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
-	bls.append(['', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
+	bls.append(['test.1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+	bls.append(['test.2.gif', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
 	print "Model data:", map(tuple, bls)
 	w = ImageSpace(model=bls)
 	w.alpha = 0x55
@@ -941,7 +944,7 @@ if __name__ == "__main__":
 	frame.add(w)
 	
 	win.show_all()
-#	w.zoom_to_size()
+	w.zoom_to_size()
 	print 'Window:', w.window
 	gtk.main()
 
