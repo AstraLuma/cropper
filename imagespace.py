@@ -218,8 +218,8 @@ class ImageSpace(gtk.Widget):
 		# that gtk+ will actually give this size to the widget
 		
 		if self.image is not None:
-			requisition.width = self.image.get_width() * self.zoom
-			requisition.height = self.image.get_height() * self.zoom
+			if not self._i2w_matrix: self._calc_matrix()
+			requisition.width, requisition.height = self._i2w_matrix.transform_distance(self.image.get_width(), self.image.get_height())
 	
 	def do_size_allocate(self, allocation):
 		# The do_size_allocate is called by when the actual size is known
@@ -228,14 +228,14 @@ class ImageSpace(gtk.Widget):
 		#Save the allocated space
 		self.allocation = allocation
 		
-		self._clear_matrix()
+		self._changed_size(resize=False)
 		
 		# If we're realized, move and resize the window to the
 		# requested coordinates/positions
 		if self.flags() & gtk.REALIZED:
 			self.window.move_resize(*allocation)
 	
-	def _changed_size(self):
+	def _changed_size(self, **kw):
 		"""
 		Updates the states related to widget size, image size, zoom, adjustment
 		changes, and other metrics.
@@ -243,7 +243,7 @@ class ImageSpace(gtk.Widget):
 		The tasks performed are:
 		* Clear the transformation matrices
 		* Update adjustments
-		* Queue a resize for ourselves and our parent
+		* Queue a resize
 		* Queue a redraw
 		"""
 		self._clear_matrix()
@@ -251,9 +251,8 @@ class ImageSpace(gtk.Widget):
 		self._recalc_adjustments()
 		
 		if self.flags() & gtk.REALIZED:
-			self.parent.queue_resize()
-			self.queue_resize()
-			self.queue_draw()
+			if kw.get('resize', True): self.queue_resize()
+			if kw.get('draw', True): self.queue_draw()
 	
 # *******************************
 # *** TRANSFORMATION MATRICES ***
@@ -271,14 +270,16 @@ class ImageSpace(gtk.Widget):
 		"""
 		Calculates the transformation matrices.
 		"""
-		i2w = cairo.Matrix()
-		# Change to centered-origin
+		z = self.zoom
 		if self.image is not None:
-			i2w.translate(-self.image.get_width()/2, -self.image.get_height()/2)
-		# Scale
-		i2w.scale(self.zoom, self.zoom)
-		# Change to Widget's origin
-		i2w.translate(self.allocation.width/2, self.allocation.height/2)
+			iw, ih = self.image.get_width(), self.image.get_height()
+		else:
+			iw, ih = 0
+		i2w = cairo.Matrix(
+			z,0,
+			0,z,
+			(self.allocation.width-iw*z)/2, (self.allocation.height-ih*z)/2
+			)
 		
 		self._i2w_matrix = i2w
 		
@@ -356,7 +357,7 @@ class ImageSpace(gtk.Widget):
 		boxes), then the closer of the two is returned
 		"""
 		if range is None: range = self.RESIZE_RANGE
-		range /= self.zoom
+		range /= self.zoom # Using the matrix here is probably too much work
 		
 		
 		for box in self.find_boxes_under_coord(x,y):
@@ -748,26 +749,32 @@ class ImageSpace(gtk.Widget):
 	
 	_hadj = _vadj = None
 	
+	_ignore_adj_changes = False
+	
 	def _recalc_adjustments(self):
-		h,v = self._hadj, self._vadj
-		alloc = self.allocation if self.flags() & gtk.REALIZED else None
-		if h:
-			if self.image is not None:
-				h.upper = self.image.get_width()
-				if alloc is not None:
-					if self._w2i_matrix is None: self._calc_matrix()
-					h.page_size = self._w2i_matrix.transform_distance(alloc.width, 0)[0]
-					if __debug__: print "h.page_size =", h.page_size
-			else:
-				h.upper = 0
-		if v:
-			if self.image is not None:
-				v.upper = self.image.get_height()
-				if alloc is not None:
-					if self._w2i_matrix is None: self._calc_matrix()
-					v.page_size = self._w2i_matrix.transform_distance(0, alloc.height)[1]
-			else:
-				v.upper = 0
+		self._ignore_adj_changes = True
+		try:
+			h,v = self._hadj, self._vadj
+			alloc = self.allocation if self.flags() & gtk.REALIZED else None
+			if h:
+				if self.image is not None:
+					h.upper = self.image.get_width()
+					if alloc is not None:
+						if self._w2i_matrix is None: self._calc_matrix()
+						h.page_size = self._w2i_matrix.transform_distance(alloc.width, 0)[0]
+						if __debug__: print "h.page_size =", h.page_size
+				else:
+					h.upper = 0
+			if v:
+				if self.image is not None:
+					v.upper = self.image.get_height()
+					if alloc is not None:
+						if self._w2i_matrix is None: self._calc_matrix()
+						v.page_size = self._w2i_matrix.transform_distance(0, alloc.height)[1]
+				else:
+					v.upper = 0
+		finally:
+			self._ignore_adj_changes = False
 	
 	def do_set_scroll_adjustments(self, hadj, vadj):
 		if __debug__: print "do_set_scroll_adjustments", hadj, vadj
@@ -778,17 +785,13 @@ class ImageSpace(gtk.Widget):
 		if not vadj and self._vadj:
 			vadj = new_adj()
 		
-		if self._hadj and self._hadj != hadj:
-			self._hadj.disconnect(self._hadj_changed_id)
-		
-		if self._vadj and self._vadj != vadj:
-			self._vadj.disconnect(self._vadj_changed_id)
-		
-		hadj.lower = vadj.lower = 0
+		if hadj: hadj.lower = 0
+		if vadj: vadj.lower = 0
 		
 		need_adjust = False
 		
 		if self._hadj != hadj:
+			if self._hadj: self._hadj.disconnect(self._hadj_changed_id)
 			self._hadj = hadj
 			self._hadj_changed_id = hadj.connect(
 				"value-changed",
@@ -796,16 +799,19 @@ class ImageSpace(gtk.Widget):
 			need_adjust = True
 		
 		if self._vadj != vadj:
+			if self._vadj: self._vadj.disconnect(self._vadj_changed_id)
 			self._vadj = vadj
 			self._vadj_changed_id = vadj.connect(
 				"value-changed",
 				self._adjustment_changed)
 			need_adjust = True
 		
-		self._changed_size()
+		if need_adjust:
+			self._changed_size()
 	
 	def _adjustment_changed(self, adj=None):
 		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		if self._ignore_adj_changes: return
 		if self.flags() & gtk.REALIZED:
 			# Update some variables and redraw
 			self._clear_matrix()
@@ -869,9 +875,9 @@ class ImageSpace(gtk.Widget):
 		"""
 		if event.state & gtk.gdk.CONTROL_MASK:
 			if event.direction == gtk.gdk.SCROLL_UP:
-				self.zoom *= 1.1
+				self.zoom += 0.1
 			elif event.direction == gtk.gdk.SCROLL_DOWN:
-				self.zoom /= 1.1
+				self.zoom -= 0.1
 	
 ImageSpace.set_set_scroll_adjustments_signal('set-scroll-adjustments')
 
@@ -884,21 +890,17 @@ if __name__ == "__main__":
 	win.connect('delete_event', gtk.main_quit)
 #	win.connect('size_allocate', lambda *p: w.zoom_to_size())
 	
-	frame = gtk.Frame("Example frame")
-	win.add(frame)
-	
 	bls = BoxListStore()
-	bls.append(['test.1.gif', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
-	bls.append(['test.2.gif', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
+#	bls.append(['1', Box(gtk.gdk.Rectangle(124,191,248,383), gtk.gdk.color_parse('#F0A'))])
+#	bls.append(['2', Box(gtk.gdk.Rectangle(50,100,200,300), gtk.gdk.color_parse('#AF0'))])
 	print "Model data:", map(tuple, bls)
 	w = ImageSpace(model=bls)
 	w.alpha = 0x55
-	w.zoom = 0.5
-	w.image=gtk.gdk.pixbuf_new_from_file('test.gif')
-	frame.add(w)
+	w.zoom = 2.0
+	w.image=gtk.gdk.pixbuf_new_from_file('testpattern.png')
+	win.add(w)
 	
 	win.show_all()
-	w.zoom_to_size()
 	print 'Window:', w.window
 	gtk.main()
 
