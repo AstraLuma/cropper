@@ -18,7 +18,7 @@ __all__ = 'ImageSpace',
 def RGBA(*p):
 	rv = 0L
 	for n in p:
-		print map(hex,p),hex(n),hex(rv)
+		if __debug__: print map(hex,p),hex(n),hex(rv)
 		rv = (rv << 8) | (n & 0xFF)
 	return rv
 
@@ -37,8 +37,8 @@ def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha
 	if filled or alpha == 0:
 		pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, width+1, height+1)
 		c = color
-		print c, c.to_string(), map(hex, [c.red, c.green, c.blue])
-		print hex(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
+		if __debug__: print c, c.to_string(), map(hex, [c.red, c.green, c.blue])
+		if __debug__: print hex(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
 		pb.fill(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
 		self.draw_pixbuf(gc, pb, 0,0, x,y, -1,-1)
 		del pb
@@ -127,8 +127,17 @@ class ImageSpace(gtk.Widget):
 	"""
 	Displays an image and allows the user to draw boxes over it.
 	"""
-	# Constants
+	
+# *****************
+# *** CONSTANTS ***
+# *****************
+	
 	SELECT, INSERT = MODES = range(2) #map(ImageSpaceModes, xrange(2))
+	
+# ******************
+# *** PROPERTIES ***
+# ******************
+	
 	__gsignals__ = {
 		'box-added'    : (gobject.SIGNAL_RUN_LAST, None, (Box,)),
 		'insert-box-changed': (gobject.SIGNAL_RUN_LAST|gobject.SIGNAL_ACTION, None, (Box,)),
@@ -140,8 +149,9 @@ class ImageSpace(gtk.Widget):
 #		'query-tooltip': 'override',
 		}
 	def _set_zoom(self, value):
-			type(self).zoom._default_setter(self, value)
-			self._changed_size()
+		type(self).zoom._default_setter(self, value)
+		self._changed_size()
+		if self.flags() & gtk.REALIZED: self.queue_draw_area(*self.allocation)
 	zoom = gprop(
 		type=gobject.TYPE_DOUBLE,
 		getter=Ellipsis,
@@ -154,8 +164,8 @@ class ImageSpace(gtk.Widget):
 		flags=gobject.PARAM_READWRITE
 		)
 	def _set_image(self, value):
-			type(self).image._default_setter(self, value)
-			self._changed_size()
+		type(self).image._default_setter(self, value)
+		self._changed_size()
 	image = gprop(
 		type=gtk.gdk.Pixbuf,
 		getter=Ellipsis,
@@ -238,15 +248,13 @@ class ImageSpace(gtk.Widget):
 		)
 	
 	_insert_start_coords = None
-	_temporary_box = None # Used for adding boxes
-	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
-	_model_listeners = None
-	_selection_listeners = None
-	_pbl_handlers = None # signal handles for PixbufLoader
-	_hadj = _vadj = None
+	
+# **************************
+# *** BASIC HOUSEKEEPING ***
+# **************************
 	
 	def __init__(self, image=None, model=None, box=1):
-#		print "__init__", self, image, model, color, rect
+#		if __debug__: print "__init__", self, image, model, color, rect
 		gtk.Widget.__init__(self)
 		# Properties
 		self.image = image
@@ -255,123 +263,6 @@ class ImageSpace(gtk.Widget):
 		self.next_color = gtk.gdk.color_parse('#0f0')
 		# Other attributes
 		self._hadj = self._vadj = None
-		# other stuff
-		self._update()
-		self.connect('notify::zoom', 
-			lambda self, prop: self.queue_draw_area(*self.allocation) if self.flags() & gtk.REALIZED else None)
-	
-	def _connect_model(self, model):
-		self._model_listeners = (
-			model.connect('row-changed', self._model_changed),
-			model.connect('row-deleted', self._model_changed),
-			model.connect('row-inserted', self._model_changed),
-			)
-	def _disconnect_model(self, model):
-		for l in self._model_listeners:
-			model.disconnect(l)
-		self._model_listeners = ()
-	
-	def _connect_selection(self, sel):
-		self._selection_listeners = (
-			sel.connect('changed', self._selection_changed),
-			)
-	def _disconnect_selection(self, sel):
-		for l in self._selection_listeners:
-			selection.disconnect(l)
-		self._selection_listeners = ()
-	
-	def do_set_scroll_adjustments(self, hadj, vadj):
-		print "do_set_scroll_adjustments", hadj, vadj
-		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
-		if not hadj and self._hadj:
-			hadj = new_adj()
-		
-		if not vadj and self._vadj:
-			vadj = new_adj()
-		
-		if self._hadj and self._hadj != hadj:
-			self._hadj.disconnect(self._hadj_changed_id)
-		
-		if self._vadj and self._vadj != vadj:
-			self._vadj.disconnect(self._vadj_changed_id)
-		
-		hadj.lower = vadj.lower = 0
-		
-		need_adjust = False
-		
-		if self._hadj != hadj:
-			self._hadj = hadj
-			self._hadj_changed_id = hadj.connect(
-				"value-changed",
-				self._adjustment_changed)
-			need_adjust = True
-		
-		if self._vadj != vadj:
-			self._vadj = vadj
-			self._vadj_changed_id = vadj.connect(
-				"value-changed",
-				self._adjustment_changed)
-			need_adjust = True
-		
-		if need_adjust and vadj and hadj:
-			self._changed_size()
-			self._adjustment_changed()
-	
-	def _adjustment_changed(self, adj=None):
-		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
-		if self.flags() & gtk.REALIZED:
-			# Update some variables and redraw
-			pass
-	
-	def _changed_size(self):
-		"""
-		Do things like update scrollbars and queue resize for ourselves and parent.
-		"""
-		h,v = self._hadj, self._vadj
-		alloc = self.allocation if self.flags() & gtk.REALIZED else None
-		if h:
-			if self.image is not None:
-				h.upper = self.image.get_width()
-				if alloc is not None:
-					h.page_size = alloc.width / self.zoom
-					print "h.page_size =", h.page_size
-			else:
-				h.upper = 0
-		if v:
-			if self.image is not None:
-				v.upper = self.image.get_height()
-				if alloc is not None:
-					v.page_size = alloc.height / self.zoom
-			else:
-				v.upper = 0
-		if self.flags() & gtk.REALIZED:
-			self.parent.queue_resize()
-			self.queue_resize()
-	
-	def loadfrompixbuf(self, pbloader):
-		"""is.loadfrompixbuf(PixbufLoader) -> None
-		Prepares the ImageSpace to load an image from PixbufLoader. The caller 
-		is expected to create the PixbufLoader and call its write() method.
-		"""
-		self.image = None
-		self._pbl_handlers = (
-			pbloader.connect('area-prepared', self.pbl_do_prepared),
-			pbloader.connect('area-updated', self.pbl_do_updated),
-			pbloader.connect('closed', self.pbl_do_closed),
-			)
-	
-	def pbl_do_prepared(self, pbloader):
-		self.image = pbloader.get_pixbuf()
-	
-	def pbl_do_updated(self, pbloader, x, y, width, height):
-		if self.flags() & gtk.REALIZED:
-			redraw = self.rect2widget(frect(x,y-1,width,height+1)) # Go back one row
-			self.queue_draw_area(*redraw)
-	
-	def pbl_do_closed(self, pbloader):
-		for h in self._pbl_handlers:
-			pbloader.disconnect(h)
-		self._pbl_handlers = None
 	
 	def do_realize(self):
 		# The do_realize method is responsible for creating GDK (windowing system)
@@ -437,124 +328,62 @@ class ImageSpace(gtk.Widget):
 		
 		#Save the allocated space
 		self.allocation = allocation
+		
+		self._clear_matrix()
+		
 		# If we're realized, move and resize the window to the
 		# requested coordinates/positions
 		if self.flags() & gtk.REALIZED:
 			self.window.move_resize(*allocation)
 	
-	def zoom_to_size(self, *p):
-		"""is.zoome_to_size() -> None
-		Adjusts the zoom so the image fills the allocation.
+	def _changed_size(self):
 		"""
-		if self.image is None or self.allocation is None:
-			return
-		print self.allocation.width, self.image.get_width()
-		print self.allocation.width, self.image.get_width(), self.allocation.width/self.image.get_width()
-		z = min(
-			self.allocation.width/self.image.get_width(),
-			self.allocation.height/self.image.get_height()
-			)
-		print "zoom_to_size", "z=", z
-		self.zoom = z
+		Updates the states related to widget size, image size, zoom, and other 
+		metrics.
+		
+		The tasks performed are:
+		* Clear the transformation matrices
+		* Update scrollbars
+		* queue a resize for ourselves and parent
+		"""
+		self._clear_matrix()
+		
+		self._recalc_adjustments()
+		
 		if self.flags() & gtk.REALIZED:
-			self.queue_draw_area(*self.allocation)
+			self.parent.queue_resize()
+			self.queue_resize()
 	
+# *******************************
+# *** TRANSFORMATION MATRICES ***
+# *******************************
 	
-	SELECTSIZE = 2.0
-	TEMP_IS_SELECTED = False
-	def do_expose_event(self, event):
-		# The do_expose_event is called when the widget is asked to draw itself
-		# Remember that this will be called a lot of times, so it's usually
-		# a good idea to write this code as optimized as it can be, don't
-		# create any resources in here.
-		
-		# For w/e reason, this has to be created every time
-		cr = self.window.cairo_create()
-		alloc = self.allocation
-		img = self.image
-		z = self.zoom
-		
-		# Do some translation
-		if img is not None:
-			# Center
-			dx = (alloc.width/z - img.get_width()) / 2
-			dy = (alloc.height/z - img.get_height()) / 2
-		else:
-			dx = alloc.width / 2
-			dy = alloc.height / 2
-		print "dx,dy=", (dx, dy)
-		if img is not None:
-			print "img=", (img.get_width(), img.get_height())
-		cr.translate(dx,dy)
-		cr.scale(z, z)
-		linewidth = 1.0/z
-		
-		# Draw image
-		if img is not None:
-			cr.set_source_pixbuf(img, 0, 0) # set_source_surface()
-			cr.rectangle((0,0,img.get_width(), img.get_height()))
-			cr.fill()
-		
-		# Draw boxes on top of it
-		# This all works
-		cr.set_line_width(linewidth)
-		cr.set_line_join(cairo.LINE_JOIN_MITER)
-		def draw_box_border(self, c, r, s):
-			if s:
-				cr.set_line_width(linewidth*self.SELECTSIZE)
-			else:
-				cr.set_line_width(linewidth)
-			# draw border
-			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
-			cr.rectangle(r)
-			cr.stroke()
-		def draw_box_fill(self, c, r, s):
-			# draw fill
-			if self.alpha > 0:
-				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
-				cr.rectangle(r)
-				cr.fill()
-		
-		boxes = []
-		def draw_box_row(model, path, row, self):
-			box, = model.get(row, int(self.box_col))
-			c = box.color
-			r = box.rect
-			r = gtk.gdk.Rectangle(*r)
-			r.width += 1
-			r.height += 1
-			s = False
-			if self.selection is not None:
-				s = self.selection.iter_is_selected(row)
-			boxes.append((c,r,s))
-		if self.model is not None:
-			self.model.foreach(draw_box_row, self)
-			for c,r,s in boxes:
-				draw_box_fill(self,c,r,s)
-		if self._temporary_box is not None:
-			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
-		for c,r,s in boxes:
-			draw_box_border(self,c,r,s)
-		if self._temporary_box is not None:
-			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
-		if __debug__:
-			if self._changed_rect is not None:
-				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect, False)
+	_w2i_matrix = _i2w_matrix = None
 	
-	def _update(self):
-		# Called when zoom or image changes
-		if self.image is not None and not hasattr(self.window, 'cairo_create'):
-			if self.zoom == 1.0:
-				self._scaled = self.image
-			else:
-				self._scaled = self.image.scale_simple(
-					int(self.image.get_width() * self.zoom),
-					int(self.image.get_height() * self.zoom),
-					gtk.gdk.INTERP_HYPER)
-		else:
-			self._scaled = None
-		if self.flags() & gtk.REALIZED:
-			self.window.invalidate_rect(self.allocation, True)
+	def _clear_matrix(self):
+		"""
+		Clears the transformation matrices.
+		"""
+		self._w2i_matrix = self._i2w_matrix = None
+	
+	def _calc_matrix(self):
+		"""
+		Calculates the transformation matrices.
+		"""
+		i2w = cairo.Matrix()
+		# Change to centered-origin
+		if self.image is not None:
+			i2w.translate(-self.image.get_width()/2, -self.image.get_height()/2)
+		# Scale
+		i2w.scale(self.zoom, self.zoom)
+		# Change to Widget's origin
+		i2w.translate(self.allocation.width/2, self.allocation.height/2)
+		
+		self._i2w_matrix = i2w
+		
+		w2i = cairo.Matrix(*i2w) #copy
+		w2i.invert()
+		self._w2i_matrix = w2i
 	
 	def img2widgetcoords(self, x,y):
 		"""is.img2widgetcoords(num,num) -> (num, num)
@@ -563,17 +392,8 @@ class ImageSpace(gtk.Widget):
 		
 		Inverse of widget2imgcoords().
 		"""
-		# Change to centered-origin
-		if self.image is not None:
-			x -= self.image.get_width() * self.zoom / 2
-			y -= self.image.get_height() * self.zoom / 2
-		# Scale
-		x *= self.zoom
-		y *= self.zoom
-		# Change to Widget's origin
-		x += self.allocation.width / 2
-		y += self.allocation.height / 2
-		return x,y
+		if self._i2w_matrix is None: self._calc_matrix()
+		return self._i2w_matrix.transform_point(x,y)
 	
 	def widget2imgcoords(self, x,y):
 		"""is.img2widgetcoords(num,num) -> (num, num)
@@ -582,28 +402,19 @@ class ImageSpace(gtk.Widget):
 		
 		Inverse of img2widgetcoords().
 		"""
-		# Change to centered-origin
-		x -= self.allocation.width / 2
-		y -= self.allocation.height / 2
-		# Scale
-		x /= self.zoom
-		y /= self.zoom
-		# Change to Image's origin
-		if self.image is not None:
-			x += self.image.get_width() * self.zoom / 2
-			y += self.image.get_height() * self.zoom / 2
-		return x,y
-	
-	def rect2img(self, rect):
-		x,y = self.widget2imgcoords(rect.x, rect.y)
-		w = rect.width * self.zoom
-		h = rect.height * self.zoom
-		return frect(x,y,w,h)
+		if self._w2i_matrix is None: self._calc_matrix()
+		return self._w2i_matrix.transform_point(x,y)
 	
 	def rect2widget(self, rect):
 		x,y = self.img2widgetcoords(rect.x, rect.y)
-		w = rect.width / self.zoom
-		h = rect.height / self.zoom
+		# Doesn't check _i2w_matrix since img2widgetcoords() does that
+		w,h = self._i2w_matrix.transform_distance(rect.width, rect.height)
+		return frect(x,y,w,h)
+	
+	def rect2img(self, rect):
+		# Doesn't check _w2i_matrix since widget2imgcoords() does that
+		x,y = self.widget2imgcoords(rect.x, rect.y)
+		w,h = self._w2i_matrix.transform_distance(rect.width, rect.height)
 		return frect(x,y,w,h)
 	
 	def alloc2img(self):
@@ -611,6 +422,15 @@ class ImageSpace(gtk.Widget):
 		Translates allocation to the images coordinates.
 		"""
 		return self.rect2img(self.allocation)
+	
+# *******************************
+# *** BOX TRACKING & HANDLING ***
+# *******************************
+	
+	_temporary_box = None # Used for adding boxes
+	_current_box = None # The box we're hovering over, possibly chosen arbitrarily
+	_boxes_under_cursor = None
+	_changed_rect = None
 	
 	def find_boxes_under_coord(self,x,y):
 		"""is.find_boxes_under_coord(num,num) -> [Box]
@@ -654,42 +474,10 @@ class ImageSpace(gtk.Widget):
 				dir += 'W'
 			elif box.x+box.width - x <= range:
 				dir += 'E'
-#			print "find_boxes_coord_near: box, dir: (%r,%r) %r, %r    \r" % (x,y,box, dir),
+#			if __debug__: print "find_boxes_coord_near: box, dir: (%r,%r) %r, %r    \r" % (x,y,box, dir),
 			sys.stdout.flush()
 			if len(dir):
 				yield box, (dir)
-	
-	def _model_changed(self, model, path, iter=None):
-		self._changed_rect = None
-		if not self.flags() & gtk.REALIZED: return
-		if iter is not None:
-			self.queue_draw_area(*self.rect2widget(self.model.get(iter, int(self.box_col))[0].rect))
-		else:
-			self.queue_draw_area(*self.allocation)
-	
-	def _selection_changed(self, selection):
-		if not self.flags() & gtk.REALIZED: return
-		self.queue_draw_area(*self.allocation)
-	
-	_boxes_under_cursor = None
-	
-	def get_tooltip_text(self, boxes):
-		if len(boxes) == 0:
-			return None
-		return '\n'.join(b.dimensions_text() for b in boxes)
-	
-	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
-		# If widget wasn't passed as self
-		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
-		print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
-		ix,iy = self.widget2imgcoords(x,y)
-		boxes = self.find_boxes_under_coord(ix,iy)
-		if len(boxes) == 0:
-			return False
-		tooltip.set_text(self.get_tooltip_text(boxes))
-		return True
-	
-	_changed_rect = None
 	
 	def _update_boxes(self, x,y):
 		"""
@@ -709,16 +497,16 @@ class ImageSpace(gtk.Widget):
 		if self._changed_rect is None or not rect_contains(self._changed_rect, x, y):
 			if len(self.model) == 0: return False
 			# The mouse left the common area
-#			print '(%i,%i)' % (x,y),
+#			if __debug__: print '(%i,%i)' % (x,y),
 			
-#			print "Old rect:", tuple(self._changed_rect) if self._changed_rect is not None else self._changed_rect,
+#			if __debug__: print "Old rect:", tuple(self._changed_rect) if self._changed_rect is not None else self._changed_rect,
 			self._changed_rect = None
 				
 			
 			# Calculate new boxes
 			newboxes = self.find_boxes_under_coord(x,y)
 			self._boxes_under_cursor = newboxes
-#			print "newboxes:", newboxes,
+#			if __debug__: print "newboxes:", newboxes,
 			
 			# Update the caching rectangle
 			if len(newboxes):
@@ -735,7 +523,7 @@ class ImageSpace(gtk.Widget):
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
 				changed = None
-#			print "Change rect:", tuple(changed)
+#			if __debug__: print "Change rect:", tuple(changed)
 			self._changed_rect = changed
 			if __debug__: # If debugging, redraw every time the box changes
 				self.queue_draw_area(*self.allocation)
@@ -756,6 +544,214 @@ class ImageSpace(gtk.Widget):
 			x,y = self.widget2imgcoords(x,y)
 			self._update_boxes(x,y)
 		return self._boxes_under_cursor[:]
+	
+	def do_box_added(self, box):
+		if __debug__: print "box-added", self, box
+	
+# **************************
+# *** DRAWING & EXPOSURE ***
+# **************************
+	
+	SELECTSIZE = 2.0
+	TEMP_IS_SELECTED = False
+	def do_expose_event(self, event):
+		# The do_expose_event is called when the widget is asked to draw itself
+		# Remember that this will be called a lot of times, so it's usually
+		# a good idea to write this code as optimized as it can be, don't
+		# create any resources in here.
+		
+		# For w/e reason, this has to be created every time
+		cr = self.window.cairo_create()
+		alloc = self.allocation
+		img = self.image
+		z = self.zoom
+		
+		# Do some translation
+		if img is not None:
+			# Center
+			dx = (alloc.width/z - img.get_width()) / 2
+			dy = (alloc.height/z - img.get_height()) / 2
+		else:
+			dx = alloc.width / 2
+			dy = alloc.height / 2
+		if __debug__:
+			print "dx,dy=", (dx, dy)
+			if img is not None:
+				print "img=", (img.get_width(), img.get_height())
+		if self._i2w_matrix is None: self._calc_matrix()
+		cr.set_matrix(self._i2w_matrix)
+		linewidth = 1.0/z
+		
+		# Draw image
+		if img is not None:
+			cr.set_source_pixbuf(img, 0, 0) # set_source_surface()
+			cr.rectangle((0,0,img.get_width(), img.get_height()))
+			cr.fill()
+		
+		# Draw boxes on top of it
+		# This all works
+		cr.set_line_width(linewidth)
+		cr.set_line_join(cairo.LINE_JOIN_MITER)
+		def draw_box_border(self, c, r, s):
+			if s:
+				cr.set_line_width(linewidth*self.SELECTSIZE)
+			else:
+				cr.set_line_width(linewidth)
+			# draw border
+			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
+			cr.rectangle(r)
+			cr.stroke()
+		def draw_box_fill(self, c, r, s):
+			# draw fill
+			if self.alpha > 0:
+				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
+				cr.rectangle(r)
+				cr.fill()
+		
+		boxes = []
+		def draw_box_row(model, path, row, self):
+			box, = model.get(row, int(self.box_col))
+			c = box.color
+			r = box.rect
+			r = gtk.gdk.Rectangle(*r)
+			r.width += 1
+			r.height += 1
+			s = False
+			if self.selection is not None:
+				s = self.selection.iter_is_selected(row)
+			boxes.append((c,r,s))
+		
+		# Draw the fills
+		if self.model is not None:
+			self.model.foreach(draw_box_row, self)
+			for c,r,s in boxes:
+				draw_box_fill(self,c,r,s)
+		if self._temporary_box is not None:
+			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+		
+		# Draw the strokes
+		# We do this second so the fills don't obscure the strokes
+		for c,r,s in boxes:
+			draw_box_border(self,c,r,s)
+		if self._temporary_box is not None:
+			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+		
+		# Do this last, so that it appears on top of everything
+		if __debug__:
+			if self._changed_rect is not None:
+				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect, False)
+	
+# *************************************
+# *** MODEL & SELECTION MAINTENANCE ***
+# *************************************
+	
+	_model_listeners = None
+	_selection_listeners = None
+	
+	def _connect_model(self, model):
+		self._model_listeners = (
+			model.connect('row-changed', self._model_changed),
+			model.connect('row-deleted', self._model_changed),
+			model.connect('row-inserted', self._model_changed),
+			)
+	def _disconnect_model(self, model):
+		for l in self._model_listeners:
+			model.disconnect(l)
+		self._model_listeners = ()
+	
+	def _connect_selection(self, sel):
+		self._selection_listeners = (
+			sel.connect('changed', self._selection_changed),
+			)
+	def _disconnect_selection(self, sel):
+		for l in self._selection_listeners:
+			selection.disconnect(l)
+		self._selection_listeners = ()
+	
+	def _model_changed(self, model, path, iter=None):
+		self._changed_rect = None
+		if not self.flags() & gtk.REALIZED: return
+		if iter is not None:
+			self.queue_draw_area(*self.rect2widget(self.model.get(iter, int(self.box_col))[0].rect))
+		else:
+			self.queue_draw_area(*self.allocation)
+	
+	def _selection_changed(self, selection):
+		if not self.flags() & gtk.REALIZED: return
+		self.queue_draw_area(*self.allocation)
+	
+# ***********************************
+# *** SCROLLED WINDOW INTERFACING ***
+# ***********************************
+	
+	_hadj = _vadj = None
+	
+	def _recalc_adjustments(self):
+		h,v = self._hadj, self._vadj
+		alloc = self.allocation if self.flags() & gtk.REALIZED else None
+		# XXX: Should this be using the transformation matrices as well?
+		if h:
+			if self.image is not None:
+				h.upper = self.image.get_width()
+				if alloc is not None:
+					h.page_size = alloc.width / self.zoom
+					if __debug__: print "h.page_size =", h.page_size
+			else:
+				h.upper = 0
+		if v:
+			if self.image is not None:
+				v.upper = self.image.get_height()
+				if alloc is not None:
+					v.page_size = alloc.height / self.zoom
+			else:
+				v.upper = 0
+	
+	def do_set_scroll_adjustments(self, hadj, vadj):
+		if __debug__: print "do_set_scroll_adjustments", hadj, vadj
+		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		if not hadj and self._hadj:
+			hadj = new_adj()
+		
+		if not vadj and self._vadj:
+			vadj = new_adj()
+		
+		if self._hadj and self._hadj != hadj:
+			self._hadj.disconnect(self._hadj_changed_id)
+		
+		if self._vadj and self._vadj != vadj:
+			self._vadj.disconnect(self._vadj_changed_id)
+		
+		hadj.lower = vadj.lower = 0
+		
+		need_adjust = False
+		
+		if self._hadj != hadj:
+			self._hadj = hadj
+			self._hadj_changed_id = hadj.connect(
+				"value-changed",
+				self._adjustment_changed)
+			need_adjust = True
+		
+		if self._vadj != vadj:
+			self._vadj = vadj
+			self._vadj_changed_id = vadj.connect(
+				"value-changed",
+				self._adjustment_changed)
+			need_adjust = True
+		
+		if need_adjust and vadj and hadj:
+			self._changed_size()
+			self._adjustment_changed()
+	
+	def _adjustment_changed(self, adj=None):
+		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		if self.flags() & gtk.REALIZED:
+			# Update some variables and redraw
+			pass
+	
+# **********************************
+# *** CURSOR TRACKING & HANDLING ***
+# **********************************
 	
 	RESIZE_CURSORS = {
 		'N' :gtk.gdk.TOP_SIDE,
@@ -789,8 +785,9 @@ class ImageSpace(gtk.Widget):
 		
 		# Update box underneath cursor, for tooltip
 		ix, iy = icoords = self.widget2imgcoords(x,y)
-		sys.stdout.write(repr(icoords)+'\r')
-		sys.stdout.flush()
+		if __debug__: 
+			sys.stdout.write(repr(icoords)+'\r')
+			sys.stdout.flush()
 		if self._update_boxes(*icoords):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
@@ -817,14 +814,14 @@ class ImageSpace(gtk.Widget):
 			elif 'S' in d:
 				r.height = round(iy - r.y)
 			b.rect = r
-#			print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
+#			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
 			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
 				gtk.gdk.BUTTON5_MASK): # Hover
 			boxes = tuple(self.find_boxes_coord_near(*icoords)) #FIXME: Use cache
 			if len(boxes):
-				#print "Nearby Boxes: %r" % (boxes,)
+				#if __debug__: print "Nearby Boxes: %r" % (boxes,)
 				box, dir = boxes[0]
 				self._box_may_resize = box
 				self._box_may_resize_dir = dir
@@ -837,7 +834,7 @@ class ImageSpace(gtk.Widget):
 		# make sure it was the first button
 		if event.button == 1:
 			if self._box_may_resize is not None:
-				print "Start resize"
+				if __debug__: print "Start resize"
 				# FIXME: Calculate offset
 				self._box_are_resizing = self._box_may_resize
 				self._box_are_resizing_dir = self._box_may_resize_dir
@@ -858,7 +855,7 @@ class ImageSpace(gtk.Widget):
 		# make sure it was the first button
 		if event.button == 1:
 			if self._box_are_resizing is not None:
-				print "Stop resize"
+				if __debug__: print "Stop resize"
 				self._box_are_resizing = self._box_may_resize = None
 				self._box_are_resizing_dir = self._box_may_resize_dir = None
 			elif self.mode == self.INSERT:
@@ -891,8 +888,8 @@ class ImageSpace(gtk.Widget):
 					assert len(boxes) == len(rows)
 				else:
 					self.model.foreach(check, (boxes[0:1], rows))
-				print "Boxes: %r" % (boxes,)
-				print "Rows: %r" % rows
+				if __debug__: print "Boxes: %r" % (boxes,)
+				if __debug__: print "Rows: %r" % rows
 				selection = self.selection
 				if event.state & gtk.gdk.CONTROL_MASK:
 					for r in rows: 
@@ -904,6 +901,79 @@ class ImageSpace(gtk.Widget):
 					selection.unselect_all()
 					for r in rows: 
 						selection.select_iter(r)
+	
+# ****************
+# *** TOOLTIPS ***
+# ****************
+	
+	def get_tooltip_text(self, boxes):
+		if len(boxes) == 0:
+			return None
+		return '\n'.join(b.dimensions_text() for b in boxes)
+	
+	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
+		# If widget wasn't passed as self
+		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
+		if __debug__: print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
+		ix,iy = self.widget2imgcoords(x,y)
+		boxes = self.find_boxes_under_coord(ix,iy)
+		if len(boxes) == 0:
+			return False
+		tooltip.set_text(self.get_tooltip_text(boxes))
+		return True
+	
+# ******************************
+# *** ADVANCED IMAGE LOADING ***
+# *** (namely PixbufLoader)  ***
+# ******************************
+	
+	_pbl_handlers = None # signal handles for PixbufLoader
+	
+	def loadfrompixbuf(self, pbloader):
+		"""is.loadfrompixbuf(PixbufLoader) -> None
+		Prepares the ImageSpace to load an image from PixbufLoader. The caller 
+		is expected to create the PixbufLoader and call its write() method.
+		"""
+		self.image = None
+		self._pbl_handlers = (
+			pbloader.connect('area-prepared', self.pbl_do_prepared),
+			pbloader.connect('area-updated', self.pbl_do_updated),
+			pbloader.connect('closed', self.pbl_do_closed),
+			)
+	
+	def pbl_do_prepared(self, pbloader):
+		self.image = pbloader.get_pixbuf()
+	
+	def pbl_do_updated(self, pbloader, x, y, width, height):
+		if self.flags() & gtk.REALIZED:
+			redraw = self.rect2widget(frect(x,y-1,width,height+1)) # Go back one row
+			self.queue_draw_area(*redraw)
+	
+	def pbl_do_closed(self, pbloader):
+		for h in self._pbl_handlers:
+			pbloader.disconnect(h)
+		self._pbl_handlers = None
+	
+# ****************************************
+# *** PUBLIC UTILITIES & MISCELLANEOUS ***
+# ****************************************
+	
+	def zoom_to_size(self, *p):
+		"""is.zoome_to_size() -> None
+		Adjusts the zoom so the image fills the allocation.
+		"""
+		if self.image is None or self.allocation is None:
+			return
+		if __debug__: print self.allocation.width, self.image.get_width()
+		if __debug__: print self.allocation.width, self.image.get_width(), self.allocation.width/self.image.get_width()
+		z = min(
+			self.allocation.width/self.image.get_width(),
+			self.allocation.height/self.image.get_height()
+			)
+		if __debug__: print "zoom_to_size", "z=", z
+		self.zoom = z
+		if self.flags() & gtk.REALIZED:
+			self.queue_draw_area(*self.allocation)
 	
 	# This should probably be in the application, not the widget
 	def do_scroll_event(self, event):
@@ -917,8 +987,6 @@ class ImageSpace(gtk.Widget):
 				self.zoom /= 1.1
 	
 	
-	def do_box_added(self, box):
-		print "box-added", self, box
 #CustomWidget(ImageSpace)
 
 if __name__ == "__main__":
