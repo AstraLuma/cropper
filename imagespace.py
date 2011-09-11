@@ -271,18 +271,18 @@ class ImageSpace(gtk.Widget):
 		Calculates the transformation matrices.
 		"""
 		z = self.zoom
-		if self.image is not None:
+		alloc = self.allocation
+		if self.image:
 			iw, ih = self.image.get_width(), self.image.get_height()
 		else:
 			iw, ih = 0, 0
-		
-		if __debug__: print self._vadj.lower, self._vadj.value, self._vadj.upper
+#		if __debug__: print self._vadj.lower, self._vadj.value, self._vadj.upper
 		
 		i2w = cairo.Matrix(
 			z,0,
 			0,z,
-			-self._hadj.value*z, 
-			-self._vadj.value*z,
+			-self._hadj.value if alloc.width  < iw*z else (alloc.width  - iw*z)/2, 
+			-self._vadj.value if alloc.height < ih*z else (alloc.height - ih*z)/2,
 			)
 		
 		self._i2w_matrix = i2w
@@ -430,9 +430,10 @@ class ImageSpace(gtk.Widget):
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
 				changed = None
-#			if __debug__: print "Change rect:", tuple(changed)
+			if __debug__: print "Change rect:", tuple(changed)
 			self._changed_rect = changed
 			assert changed is None or rect_contains(changed, x,y)
+			if __debug__: self.queue_draw()
 			return True
 		else:
 			return False
@@ -533,7 +534,7 @@ class ImageSpace(gtk.Widget):
 		# Do this last, so that it appears on top of everything
 		if __debug__:
 			if self._changed_rect is not None:
-				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect, False)
+				self.draw_box_border(cr, gtk.gdk.color_parse('#F00'), self._changed_rect, False, linewidth)
 	
 # **********************************
 # *** CURSOR TRACKING & HANDLING ***
@@ -765,19 +766,19 @@ class ImageSpace(gtk.Widget):
 			alloc = self.allocation if self.flags() & gtk.REALIZED else None
 			if h:
 				if self.image is not None:
-					h.upper = self.image.get_width()
+					if self._i2w_matrix is None: self._calc_matrix()
+					h.upper = self._i2w_matrix.transform_distance(self.image.get_width(), 0)[0]
 					if alloc is not None:
-						if self._w2i_matrix is None: self._calc_matrix()
-						h.page_size = self._w2i_matrix.transform_distance(alloc.width, 0)[0]
+						h.page_size = alloc.width
 						if __debug__: print "h.page_size =", h.page_size
 				else:
 					h.upper = 0
 			if v:
 				if self.image is not None:
-					v.upper = self.image.get_height()
+					if self._i2w_matrix is None: self._calc_matrix()
+					v.upper = self._i2w_matrix.transform_distance(0, self.image.get_height())[1]
 					if alloc is not None:
-						if self._w2i_matrix is None: self._calc_matrix()
-						v.page_size = self._w2i_matrix.transform_distance(0, alloc.height)[1]
+						v.page_size = alloc.height
 				else:
 					v.upper = 0
 		finally:

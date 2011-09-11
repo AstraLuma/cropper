@@ -5,23 +5,12 @@ cropper [file]
 
 An app to easily crop an image into multiple pieces.
 """
-#TODO: Add preferences:
-# * List of box colors
-# * Alpha level
-# * Allow overlapping?
-# * Outside box handling: Disallow (bound), Ignore, Pad
-#TODO: Add file drag&drop
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject
-#gtk.gdk.threads_init()
+gtk.gdk.threads_init()
 #gobject.threads_init()
 import pango
-try:
-	import gnomevfs
-except ImportError:
-	gnomevfs = None
-else:
-	import gnomevfs.async
+import gio
 from gbuilder import BuilderWindow, resource
 from box import Box
 from boxmodel import BoxListStore
@@ -29,18 +18,16 @@ from imagespace import ImageSpace
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
-from vfsutils import make_absolute
+import PIL
+
+BUFSIZE = 8*1024 #8K # Amount to read in one go
+
 parser = OptionParser()
 #parser.add_option("-f", "--file", dest="filename",
 #                  help="write report to FILE", metavar="FILE")
 #parser.add_option("-q", "--quiet",
 #                  action="store_false", dest="verbose", default=True,
 #                  help="don't print status messages to stdout")
-
-if gnomevfs:
-	BUFSIZE = 8*1024 #8K # Amount to read in one go
-else:
-	BUFSIZE = 16*1024 #16K
 
 def permIter(seq):
 	"""
@@ -59,11 +46,17 @@ def permIter(seq):
 			for rest in rest_iter:
 				yield element_slice + rest
 
+def make_absolute(fn):
+	print "make_absolute:", fn,
+	rv = gio.File(fn)
+	print rv
+	return rv.get_uri()
+
 class Cropper(BuilderWindow):
 	window = property(lambda self: self.wCropper)
 	filename = None
 	def __init__(self, options, args, *pargs, **kwargs):
-		print 'Cropper.__init__()'
+		if __debug__: print 'Cropper.__init__()'
 		#TODO: Put all of this into GtkBuilder
 		self.model = BoxListStore()
 		self.model.exist_image = 'filesave'
@@ -104,12 +97,12 @@ class Cropper(BuilderWindow):
 		self.tvAreas.set_tooltip_column(11)
 		
 		if len(args):
-			print "args: %r" % args
+			if __debug__: print "args: %r" % args
 			self.Open(None, file=make_absolute(args[0]))
 #		self.window.connect('key-press-event', self._keypress)
 	
 #	def _keypress(self, window, event):
-#		print "Keypress: %r %r" % (event.keyval, event.state)
+#		if __debug__: print "Keypress: %r %r" % (event.keyval, event.state)
 #		return False
 	
 	def present(self):
@@ -179,7 +172,7 @@ class Cropper(BuilderWindow):
 #########
 	
 	def Open(self, action, **kwargs):
-		print 'Open'
+		if __debug__: print 'Open'
 		
 		if 'file' in kwargs:
 			filename = kwargs['file']
@@ -193,14 +186,10 @@ class Cropper(BuilderWindow):
 				)
 			dlg.set_use_preview_label(True)
 			dlg.set_select_multiple(False)
-			dlg.set_local_only(gnomevfs is None)
 			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
 				dlg.destroy()
 				return
-			if gnomevfs is None:
-				filename = dlg.get_filename()
-			else:
-				filename = dlg.get_uri()
+			filename = dlg.get_uri()
 			dlg.destroy()
 		
 		# Open image
@@ -211,123 +200,45 @@ class Cropper(BuilderWindow):
 		# open the file
 		pbl = gtk.gdk.PixbufLoader()
 		self.isImage.loadfrompixbuf(pbl)
-		if gnomevfs is None:
-			img = open(filename, 'r')
-			def readchunk(cb, size, f, pbl):
-				data = f.read(size)
-				if len(data) > 0:
-					pbl.write(data)
-					gobject.idle_add(cb, size, f, pbl)
-				else:
-					pbl.close()
-			gobject.idle_add(readchunk, readchunk, BUFSIZE, img, pbl)
-		else:
-			self._loadfromvfs(pbl, gnomevfs.URI(filename))
+		self._loadfromgio(pbl, gio.File(filename))
 	
-	def _loadfromvfs(self, pbl, uri):
-		if not gnomevfs.exists(uri):
-			raise IOError, "File does not exist"
-		# Handles all the async mess. I want twisted deferreds!
-		def _open(img, exc_type):
-			if exc_type:
+	def _loadfromgio(self, pbl, fil):
+		#TODO: Reimplement progressive reading
+		def _open(f, result):
+			s = fil.read_finish(result)
+			if s is None:
+				#TODO: Check the error and inform the user
 				pbl.close()
 			else:
-				def _read(img, buffer, exc_type, bytes_requested):
-					if exc_type:
-						pbl.close()
-					else:
-						img.read(BUFSIZE, _read) # Start the next read immediately
-						try:
-							pbl.write(buffer)
-						except:
-							pbl.close()
-							img.cancel()
-							raise
-				img.read(BUFSIZE, _read)
-		img = gnomevfs.async.open(uri, _open, gnomevfs.OPEN_READ)
+				data = s.read()
+				pbl.write(data)
+				pbl.close()
+		fil.read_async(_open)
 	
 	def Crop(self, action):
-		mktemp = lambda fn:os.path.join('/tmp', os.path.basename(fn))
-		print 'Crop'
-		# Copy from remote to local
-		#FIXME: Better feedback when using gnomevfs
-		fname = None
-		def _copyhere_cb(_, info, data):
-			if info.phase == gnomevfs.XFER_PHASE_COMPLETED:
-				_copyhere()
-			return True
-		def _copyhere():
-			cmd_start = ['convert', fname]
-			#FIXME: Ask if there's conflicts
-			for fn, box in ((r[0],r[1]) for r in self.model):
-				print "fn:", fn
-				if gnomevfs is not None:
-					# fn is a gnomevfs URI, make tmp file
-					uri = fn
-					fn = mktemp(fn)
-				#FIXME: Limit to image size
-				r= box.rect
-				cmd = cmd_start+['-crop', '%ix%i+%i+%i' % (r.width, r.height, r.x, r.y), fn]
-				print "cmd:", cmd
-				try:
-					subprocess.check_call(cmd)
-				except:
-					print >> sys.stderr, "Error executing command %r:" % cmd
-					import traceback
-					traceback.print_exc()
-			if gnomevfs is not None:
-				print "Copy back"
-				gnomevfs.async.xfer(
-					source_uri_list=[gnomevfs.URI(mktemp(r[0])) for r in self.model], 
-					target_uri_list=[gnomevfs.URI(r[0]) for r in self.model],
-					xfer_options=gnomevfs.XFER_DEFAULT,
-					error_mode=gnomevfs.XFER_ERROR_MODE_ABORT,
-					overwrite_mode=gnomevfs.XFER_OVERWRITE_MODE_REPLACE,
-					progress_update_callback=(lambda _, info, data: True),
-					update_callback_data=None,
-#					progress_sync_callback=(lambda info, data: True),
-#	`				sync_callback_data=0x1234,
-					)
-			# Update the model
-			self.model.foreach(BoxListStore.row_changed)
-		if gnomevfs is None:
-			fname = self.filename
-			_copyhere()
-		else:
-			fname = mktemp(self.filename)
-			gnomevfs.async.xfer(
-				source_uri_list=[gnomevfs.URI(self.filename)], 
-				target_uri_list=[gnomevfs.URI(fname)],
-				xfer_options=gnomevfs.XFER_DEFAULT,
-				error_mode=gnomevfs.XFER_ERROR_MODE_ABORT,
-				overwrite_mode=gnomevfs.XFER_OVERWRITE_MODE_REPLACE,
-				progress_update_callback=_copyhere_cb,
-				update_callback_data=None,
-#				progress_sync_callback=(lambda info, data: True),
-#				sync_callback_data=0x1234,
-				)
+		if __debug__: print 'Crop'
 	
 	def Quit(self, action):
 		self.wCropper.destroy()
 	
 	def Clear(self, action):
-		print 'Clear'
+		if __debug__: print 'Clear'
 		self.model.clear()
 	
 	def Cut(self, action):
-		print 'Cut'
+		if __debug__: print 'Cut'
 		pass
 	
 	def Copy(self, action):
-		print 'Copy'
+		if __debug__: print 'Copy'
 		pass
 	
 	def Paste(self, action):
-		print 'Paste'
+		if __debug__: print 'Paste'
 		pass
 	
 	def Delete(self, action):
-		print 'Delete'
+		if __debug__: print 'Delete'
 		model, rows = self.tvAreas.get_selection().get_selected_rows()
 		rows = map(model.get_iter, rows)
 		for row in rows:
@@ -346,7 +257,7 @@ class Cropper(BuilderWindow):
 		self.isImage.zoom = 1.0
 	
 	def ZoomFit(self, action):
-		print "ZoomFit"
+		if __debug__: print "ZoomFit"
 		self.isImage.zoom_to_size()
 	
 	def FlipHorizontal(self, action):
@@ -385,12 +296,12 @@ class Cropper(BuilderWindow):
 	
 	def Add(self, action, value):
 		if action == value:
-			print "Add"
+			if __debug__: print "Add"
 			self.isImage.mode = ImageSpace.INSERT
 	
 	def Select(self, action, value):
 		if action == value:
-			print "Select"
+			if __debug__: print "Select"
 			self.isImage.mode = ImageSpace.SELECT
 
 if __name__ == '__main__':
@@ -409,6 +320,6 @@ if __name__ == '__main__':
 	
 	# Run
 	app.present()
-	print "Model data:", map(tuple, app.model)
+	if __debug__: print "Model data:", map(tuple, app.model)
 	gtk.gdk.set_show_events(True)
 	gtk.main()
