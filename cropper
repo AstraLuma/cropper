@@ -18,7 +18,8 @@ from imagespace import ImageSpace
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
 import sys, os, subprocess
-import PIL
+import PIL.Image
+from cStringIO import StringIO
 
 BUFSIZE = 8*1024 #8K # Amount to read in one go
 
@@ -202,6 +203,8 @@ class Cropper(BuilderWindow):
 		self.isImage.loadfrompixbuf(pbl)
 		self._loadfromgio(pbl, gio.File(filename))
 	
+	imagedata = None
+	
 	def _loadfromgio(self, pbl, fil):
 		#TODO: Reimplement progressive reading
 		def _open(f, result):
@@ -211,13 +214,30 @@ class Cropper(BuilderWindow):
 				pbl.close()
 			else:
 				data = s.read()
+				self.imagedata += data
 				pbl.write(data)
 				pbl.close()
+		self.imagedata = ''
 		fil.read_async(_open)
 	
 	def Crop(self, action):
 		if __debug__: print 'Crop'
-	
+		#TODO: Make this async
+		#TODO: Ask if there's conflicts
+		
+		origin = PIL.Image.open(StringIO(self.imagedata))
+		
+		for fn, box in ((r[0],r[1]) for r in self.model):
+			print "fn:", fn
+			r = box.rect
+			img = origin.crop((r.x, r.y, r.x+r.width, r.y+r.height))
+			
+			dest = gio.File(fn)
+			ext = os.path.splitext(dest.get_basename())[1].lower()
+			img.save(dest.replace('', False), PIL.Image.EXTENSION.get(ext, origin.format))
+		# Update the model
+		self.model.foreach(BoxListStore.row_changed)
+
 	def Quit(self, action):
 		self.wCropper.destroy()
 	

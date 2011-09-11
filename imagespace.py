@@ -51,6 +51,7 @@ class ImageSpace(gtk.Widget):
 # ******************
 	
 	def _set_zoom(self, value):
+		if value <= 0.0: raise ValueError
 		type(self).zoom._default_setter(self, value)
 		self._changed_size()
 	zoom = gprop(
@@ -430,7 +431,7 @@ class ImageSpace(gtk.Widget):
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
 				changed = None
-			if __debug__: print "Change rect:", tuple(changed)
+			if __debug__: print "Change rect:", changed
 			self._changed_rect = changed
 			assert changed is None or rect_contains(changed, x,y)
 			if __debug__: self.queue_draw()
@@ -883,9 +884,9 @@ class ImageSpace(gtk.Widget):
 		"""
 		if event.state & gtk.gdk.CONTROL_MASK:
 			if event.direction == gtk.gdk.SCROLL_UP:
-				self.zoom += 0.1
+				self.zoom *= 1.1
 			elif event.direction == gtk.gdk.SCROLL_DOWN:
-				self.zoom -= 0.1
+				self.zoom /= 1.1
 	
 ImageSpace.set_set_scroll_adjustments_signal('set-scroll-adjustments')
 
