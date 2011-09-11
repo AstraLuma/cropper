@@ -15,100 +15,6 @@ from usefulgprop import property as gprop
 
 __all__ = 'ImageSpace',
 
-def RGBA(*p):
-	rv = 0L
-	for n in p:
-		if __debug__: print map(hex,p),hex(n),hex(rv)
-		rv = (rv << 8) | (n & 0xFF)
-	return rv
-
-# A "method" for Drawable
-def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha):
-	"""
-	Takes care of the tedious task drawing a rectangle with a semi-transparent 
-	filling.
-	
-	Nearly identical to draw_rectangle, except for:
-	* alpha - the alpha that should be used, 0-255
-	
-	Uses non-filled sizing rules.
-	"""
-	# I feel like there should be a more efficient way to do this
-	if filled or alpha == 0:
-		pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, width+1, height+1)
-		c = color
-		if __debug__: print c, c.to_string(), map(hex, [c.red, c.green, c.blue])
-		if __debug__: print hex(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
-		pb.fill(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
-		self.draw_pixbuf(gc, pb, 0,0, x,y, -1,-1)
-		del pb
-	gc 
-	self.draw_rectangle(gc, False, x, y, width, height)
-
-def treeview_rubber_band(widget, rect, c):
-	"""
-	From gtk_tree_view_paint_rubber_band()
-	"""
-	cr = widget.window.cairo_create()
-	cr.set_line_width(1.0)
-	
-	cr.set_source_rgba(
-			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
-			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
-			widget.style.fg[gtk.STATE_NORMAL].blue / 65535,
-			.25)
-	
-	cr.rectangle(rect)
-	cr.clip()
-	cr.paint()
-	
-	cr.set_source_rgb(
-			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
-			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
-			widget.style.fg[gtk.STATE_NORMAL].blue / 65535)
-	
-	cr.rectangle(
-			rect.x + 0.5, rect.y + 0.5,
-			rect.width - 1, rect.height - 1)
-	cr.stroke();
-	
-	del cr
-
-def iconview_rubber_band(widget, rect, cr):
-	"""
-	From gtk_icon_view_paint_rubberband()
-	"""
-	# Style properties
-	fill_color_gdk = widget.style_get_property("selection-box-color")
-	fill_color_alpha = widget.style_get_property("selection-box-alpha")
-
-	if not fill_color_gdk:
-		fill_color_gdk = widget.style.base[gtk.STATE_SELECTED].copy()
-
-	cr.set_source_rgba(
-			fill_color_gdk.red / 65535,
-			fill_color_gdk.green / 65535,
-			fill_color_gdk.blue / 65535,
-			fill_color_alpha / 255)
-
-	cr.save()
-	cr.rectangle(rect)
-	cr.clip()
-	cr.paint()
-
-	# Draw the border without alpha
-	cr.set_source_rgb(
-			fill_color_gdk.red / 65535,
-			fill_color_gdk.green / 65535,
-			fill_color_gdk.blue / 65535)
-	cr.rectangle(
-			rect.x + 0.5, rect.y + 0.5,
-			rect.width - 1, rect.height - 1)
-	cr.stroke()
-	cr.restore()
-
-	del fill_color_gdk
-
 #class ImageSpaceModes(gobject.GEnum):
 #	__enum_values__ = {
 #		# int : GEnum
@@ -247,11 +153,9 @@ class ImageSpace(gtk.Widget):
 		flags=gobject.PARAM_READWRITE
 		)
 	
-	_insert_start_coords = None
-	
-# **************************
-# *** BASIC HOUSEKEEPING ***
-# **************************
+# *********************************
+# *** BASIC WIDGET HOUSEKEEPING ***
+# *********************************
 	
 	def __init__(self, image=None, model=None, box=1):
 #		if __debug__: print "__init__", self, image, model, color, rect
@@ -641,6 +545,181 @@ class ImageSpace(gtk.Widget):
 			if self._changed_rect is not None:
 				draw_box_border(self, gtk.gdk.color_parse('#F00'), self._changed_rect, False)
 	
+# **********************************
+# *** CURSOR TRACKING & HANDLING ***
+# **********************************
+	
+	RESIZE_CURSORS = {
+		'N' :gtk.gdk.TOP_SIDE,
+		'S' :gtk.gdk.BOTTOM_SIDE,
+		'E' :gtk.gdk.RIGHT_SIDE,
+		'W' :gtk.gdk.LEFT_SIDE,
+		'NE':gtk.gdk.TOP_RIGHT_CORNER,
+		'NW':gtk.gdk.TOP_LEFT_CORNER,
+		'SE':gtk.gdk.BOTTOM_RIGHT_CORNER,
+		'SW':gtk.gdk.BOTTOM_LEFT_CORNER,
+		}
+	
+	_insert_start_coords = None
+	
+	_rubber_band_start = None
+	_box_may_resize = None
+	_box_is_resizing = None
+	_box_may_resize_dir = None
+	_box_is_resizing_dir = None
+	def do_motion_notify_event(self, event):
+		"""
+		Handles updating all the cached info dealing with the mouse (eg, boxes, 
+		tooltips).
+		"""
+		# if this is a hint, then let's get all the necessary 
+		# information, if not it's all we need.
+		if event.is_hint:
+			x, y, state = event.window.get_pointer()
+		else:
+			x = event.x
+			y = event.y
+			state = event.state
+		
+		# Update box underneath cursor, for tooltip
+		ix, iy = icoords = self.widget2imgcoords(x,y)
+		if __debug__: 
+			sys.stdout.write(repr(icoords)+'\r')
+			sys.stdout.flush()
+		if self._update_boxes(*icoords):
+			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
+			self.trigger_tooltip_query()
+		
+		if self.mode == self.INSERT and self._insert_start_coords is not None and state & gtk.gdk.BUTTON1_MASK:
+			# Adjust temporary box
+			nr = pt2rect(icoords, self._insert_start_coords)
+			redraw = nr.union(self._temporary_box.rect)
+			self._temporary_box.rect = nr
+			#self.queue_draw_area(*redraw)
+			self.queue_draw()
+			self.emit('insert-box-changed', self._temporary_box)
+		elif self._box_is_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
+			d = self._box_is_resizing_dir
+			b = self._box_is_resizing
+			r = frect(*b.rect)
+			obox = frect(*b.rect)
+			if 'W' in d:
+				r.x, r.width = round(ix), round(r.x + r.width - ix)
+			elif 'E' in d:
+				r.width = round(ix - r.x)
+			if 'N' in d:
+				r.y, r.height = round(iy), round(r.y + r.height - iy)
+			elif 'S' in d:
+				r.height = round(iy - r.y)
+			b.rect = r
+#			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
+			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
+		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
+				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
+				gtk.gdk.BUTTON5_MASK): # Hover
+			boxes = tuple(self.find_boxes_coord_near(*icoords)) #FIXME: Use cache
+			if len(boxes):
+				#if __debug__: print "Nearby Boxes: %r" % (boxes,)
+				box, dir = boxes[0]
+				self._box_may_resize = box
+				self._box_may_resize_dir = dir
+				self.window.set_cursor(gtk.gdk.Cursor(self.window.get_display(), self.RESIZE_CURSORS[dir]))
+			else:
+				self._box_may_resize = self._box_may_resize_dir = None
+				self.window.set_cursor(None)
+	
+	def do_button_press_event(self, event):
+		# make sure it was the first button
+		if event.button == 1:
+			if self._box_may_resize is not None:
+				if __debug__: print "Start resize"
+				# FIXME: Calculate offset
+				self._box_is_resizing = self._box_may_resize
+				self._box_is_resizing_dir = self._box_may_resize_dir
+			elif self.mode == self.INSERT:
+				# Begin new box
+				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
+				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self.next_color.copy())
+				self.emit('insert-box-changed', self._temporary_box)
+			elif self.mode == self.SELECT:
+				# Change selection
+				# TODO: Rubber banding
+				if self.selection is None: return True
+				boxes = self.get_boxes_under_cursor(event.x, event.y)
+				rows = []
+			return True
+	
+	def do_button_release_event(self, event):
+		# make sure it was the first button
+		if event.button == 1:
+			if self._box_is_resizing is not None:
+				if __debug__: print "Stop resize"
+				self._box_is_resizing = self._box_may_resize = None
+				self._box_is_resizing_dir = self._box_may_resize_dir = None
+			elif self.mode == self.INSERT:
+				# End new box
+				nb = self._temporary_box
+				self._insert_start_coords = self._temporary_box = None
+				if nb.rect.width == 0 or nb.rect.height == 0: 
+					return
+				redraw = self.rect2widget(nb.rect)
+				redraw.x -= 1
+				redraw.y -= 1
+				redraw.width += 2
+				redraw.height += 2
+				self.queue_draw_area(*redraw)
+				self.emit('box-added', nb)
+				self._changed_rect = None
+			elif self.mode == self.SELECT:
+				# Change selection
+				# TODO: Rubber banding
+				if self.selection is None: return True
+				rows = []
+				boxes = self.get_boxes_under_cursor(event.x, event.y)
+				def check(model, path, iter, ua):
+					boxes, rows = ua
+					rbox, = model.get(iter, int(self.box_col))
+					if rbox in boxes:
+						rows.append(iter)
+				if event.state & gtk.gdk.SHIFT_MASK:
+					self.model.foreach(check, (boxes, rows))
+					assert len(boxes) == len(rows)
+				else:
+					self.model.foreach(check, (boxes[0:1], rows))
+				if __debug__: print "Boxes: %r" % (boxes,)
+				if __debug__: print "Rows: %r" % rows
+				selection = self.selection
+				if event.state & gtk.gdk.CONTROL_MASK:
+					for r in rows: 
+						if selection.iter_is_selected(r):
+							selection.unselect_iter(r)
+						else:
+							selection.select_iter(r)
+				else:
+					selection.unselect_all()
+					for r in rows: 
+						selection.select_iter(r)
+	
+# ****************
+# *** TOOLTIPS ***
+# ****************
+	
+	def get_tooltip_text(self, boxes):
+		if len(boxes) == 0:
+			return None
+		return '\n'.join(b.dimensions_text() for b in boxes)
+	
+	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
+		# If widget wasn't passed as self
+		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
+		if __debug__: print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
+		ix,iy = self.widget2imgcoords(x,y)
+		boxes = self.find_boxes_under_coord(ix,iy)
+		if len(boxes) == 0:
+			return False
+		tooltip.set_text(self.get_tooltip_text(boxes))
+		return True
+	
 # *************************************
 # *** MODEL & SELECTION MAINTENANCE ***
 # *************************************
@@ -748,179 +827,6 @@ class ImageSpace(gtk.Widget):
 		if self.flags() & gtk.REALIZED:
 			# Update some variables and redraw
 			pass
-	
-# **********************************
-# *** CURSOR TRACKING & HANDLING ***
-# **********************************
-	
-	RESIZE_CURSORS = {
-		'N' :gtk.gdk.TOP_SIDE,
-		'S' :gtk.gdk.BOTTOM_SIDE,
-		'E' :gtk.gdk.RIGHT_SIDE,
-		'W' :gtk.gdk.LEFT_SIDE,
-		'NE':gtk.gdk.TOP_RIGHT_CORNER,
-		'NW':gtk.gdk.TOP_LEFT_CORNER,
-		'SE':gtk.gdk.BOTTOM_RIGHT_CORNER,
-		'SW':gtk.gdk.BOTTOM_LEFT_CORNER,
-		}
-	
-	_rubber_band_start = None
-	_box_may_resize = None
-	_box_are_resizing = None
-	_box_may_resize_dir = None
-	_box_are_resizing_dir = None
-	def do_motion_notify_event(self, event):
-		"""
-		Handles updating all the cached info dealing with the mouse (eg, boxes, 
-		tooltips).
-		"""
-		# if this is a hint, then let's get all the necessary 
-		# information, if not it's all we need.
-		if event.is_hint:
-			x, y, state = event.window.get_pointer()
-		else:
-			x = event.x
-			y = event.y
-			state = event.state
-		
-		# Update box underneath cursor, for tooltip
-		ix, iy = icoords = self.widget2imgcoords(x,y)
-		if __debug__: 
-			sys.stdout.write(repr(icoords)+'\r')
-			sys.stdout.flush()
-		if self._update_boxes(*icoords):
-			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
-			self.trigger_tooltip_query()
-		
-		if self.mode == self.INSERT and self._insert_start_coords is not None and state & gtk.gdk.BUTTON1_MASK:
-			# Adjust temporary box
-			nr = pt2rect(icoords, self._insert_start_coords)
-			redraw = nr.union(self._temporary_box.rect)
-			self._temporary_box.rect = nr
-			#self.queue_draw_area(*redraw)
-			self.queue_draw()
-			self.emit('insert-box-changed', self._temporary_box)
-		elif self._box_are_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
-			d = self._box_are_resizing_dir
-			b = self._box_are_resizing
-			r = frect(*b.rect)
-			obox = frect(*b.rect)
-			if 'W' in d:
-				r.x, r.width = round(ix), round(r.x + r.width - ix)
-			elif 'E' in d:
-				r.width = round(ix - r.x)
-			if 'N' in d:
-				r.y, r.height = round(iy), round(r.y + r.height - iy)
-			elif 'S' in d:
-				r.height = round(iy - r.y)
-			b.rect = r
-#			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
-			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
-		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
-				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
-				gtk.gdk.BUTTON5_MASK): # Hover
-			boxes = tuple(self.find_boxes_coord_near(*icoords)) #FIXME: Use cache
-			if len(boxes):
-				#if __debug__: print "Nearby Boxes: %r" % (boxes,)
-				box, dir = boxes[0]
-				self._box_may_resize = box
-				self._box_may_resize_dir = dir
-				self.window.set_cursor(gtk.gdk.Cursor(self.window.get_display(), self.RESIZE_CURSORS[dir]))
-			else:
-				self._box_may_resize = self._box_may_resize_dir = None
-				self.window.set_cursor(None)
-	
-	def do_button_press_event(self, event):
-		# make sure it was the first button
-		if event.button == 1:
-			if self._box_may_resize is not None:
-				if __debug__: print "Start resize"
-				# FIXME: Calculate offset
-				self._box_are_resizing = self._box_may_resize
-				self._box_are_resizing_dir = self._box_may_resize_dir
-			elif self.mode == self.INSERT:
-				# Begin new box
-				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
-				self._temporary_box = Box(frect(*self._insert_start_coords+(0,0)), self.next_color.copy())
-				self.emit('insert-box-changed', self._temporary_box)
-			elif self.mode == self.SELECT:
-				# Change selection
-				# TODO: Rubber banding
-				if self.selection is None: return True
-				boxes = self.get_boxes_under_cursor(event.x, event.y)
-				rows = []
-			return True
-	
-	def do_button_release_event(self, event):
-		# make sure it was the first button
-		if event.button == 1:
-			if self._box_are_resizing is not None:
-				if __debug__: print "Stop resize"
-				self._box_are_resizing = self._box_may_resize = None
-				self._box_are_resizing_dir = self._box_may_resize_dir = None
-			elif self.mode == self.INSERT:
-				# End new box
-				nb = self._temporary_box
-				self._insert_start_coords = self._temporary_box = None
-				if nb.rect.width == 0 or nb.rect.height == 0: 
-					return
-				redraw = self.rect2widget(nb.rect)
-				redraw.x -= 1
-				redraw.y -= 1
-				redraw.width += 2
-				redraw.height += 2
-				self.queue_draw_area(*redraw)
-				self.emit('box-added', nb)
-				self._changed_rect = None
-			elif self.mode == self.SELECT:
-				# Change selection
-				# TODO: Rubber banding
-				if self.selection is None: return True
-				rows = []
-				boxes = self.get_boxes_under_cursor(event.x, event.y)
-				def check(model, path, iter, ua):
-					boxes, rows = ua
-					rbox, = model.get(iter, int(self.box_col))
-					if rbox in boxes:
-						rows.append(iter)
-				if event.state & gtk.gdk.SHIFT_MASK:
-					self.model.foreach(check, (boxes, rows))
-					assert len(boxes) == len(rows)
-				else:
-					self.model.foreach(check, (boxes[0:1], rows))
-				if __debug__: print "Boxes: %r" % (boxes,)
-				if __debug__: print "Rows: %r" % rows
-				selection = self.selection
-				if event.state & gtk.gdk.CONTROL_MASK:
-					for r in rows: 
-						if selection.iter_is_selected(r):
-							selection.unselect_iter(r)
-						else:
-							selection.select_iter(r)
-				else:
-					selection.unselect_all()
-					for r in rows: 
-						selection.select_iter(r)
-	
-# ****************
-# *** TOOLTIPS ***
-# ****************
-	
-	def get_tooltip_text(self, boxes):
-		if len(boxes) == 0:
-			return None
-		return '\n'.join(b.dimensions_text() for b in boxes)
-	
-	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
-		# If widget wasn't passed as self
-		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
-		if __debug__: print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
-		ix,iy = self.widget2imgcoords(x,y)
-		boxes = self.find_boxes_under_coord(ix,iy)
-		if len(boxes) == 0:
-			return False
-		tooltip.set_text(self.get_tooltip_text(boxes))
-		return True
 	
 # ******************************
 # *** ADVANCED IMAGE LOADING ***

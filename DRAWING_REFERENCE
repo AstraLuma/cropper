@@ -1,0 +1,97 @@
+This is just some of the other methods I have for drawing the semi-transparent 
+box used in ImageSpace.
+
+def RGBA(*p):
+	rv = 0L
+	for n in p:
+		if __debug__: print map(hex,p),hex(n),hex(rv)
+		rv = (rv << 8) | (n & 0xFF)
+	return rv
+
+# A "method" for Drawable
+def draw_alpha_rectangle_gdk(self, gc, color, filled, x, y, width, height, alpha):
+	"""
+	Takes care of the tedious task drawing a rectangle with a semi-transparent 
+	filling.
+	
+	Nearly identical to draw_rectangle, except for:
+	* alpha - the alpha that should be used, 0-255
+	
+	Uses non-filled sizing rules.
+	"""
+	# I feel like there should be a more efficient way to do this
+	if filled or alpha == 0:
+		pb = gtk.gdk.Pixbuf(gtk.gdk.COLORSPACE_RGB, True, 8, width+1, height+1)
+		c = color
+		if __debug__: print c, c.to_string(), map(hex, [c.red, c.green, c.blue])
+		if __debug__: print hex(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
+		pb.fill(RGBA(c.red//256, c.green//256, c.blue//256, alpha))
+		self.draw_pixbuf(gc, pb, 0,0, x,y, -1,-1)
+		del pb
+	gc 
+	self.draw_rectangle(gc, False, x, y, width, height)
+
+def treeview_rubber_band(widget, rect, c):
+	"""
+	From gtk_tree_view_paint_rubber_band()
+	"""
+	cr = widget.window.cairo_create()
+	cr.set_line_width(1.0)
+	
+	cr.set_source_rgba(
+			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].blue / 65535,
+			.25)
+	
+	cr.rectangle(rect)
+	cr.clip()
+	cr.paint()
+	
+	cr.set_source_rgb(
+			widget.style.fg[gtk.STATE_NORMAL].red / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].green / 65535,
+			widget.style.fg[gtk.STATE_NORMAL].blue / 65535)
+	
+	cr.rectangle(
+			rect.x + 0.5, rect.y + 0.5,
+			rect.width - 1, rect.height - 1)
+	cr.stroke();
+	
+	del cr
+
+def iconview_rubber_band(widget, rect, cr):
+	"""
+	From gtk_icon_view_paint_rubberband()
+	"""
+	# Style properties
+	fill_color_gdk = widget.style_get_property("selection-box-color")
+	fill_color_alpha = widget.style_get_property("selection-box-alpha")
+
+	if not fill_color_gdk:
+		fill_color_gdk = widget.style.base[gtk.STATE_SELECTED].copy()
+
+	cr.set_source_rgba(
+			fill_color_gdk.red / 65535,
+			fill_color_gdk.green / 65535,
+			fill_color_gdk.blue / 65535,
+			fill_color_alpha / 255)
+
+	cr.save()
+	cr.rectangle(rect)
+	cr.clip()
+	cr.paint()
+
+	# Draw the border without alpha
+	cr.set_source_rgb(
+			fill_color_gdk.red / 65535,
+			fill_color_gdk.green / 65535,
+			fill_color_gdk.blue / 65535)
+	cr.rectangle(
+			rect.x + 0.5, rect.y + 0.5,
+			rect.width - 1, rect.height - 1)
+	cr.stroke()
+	cr.restore()
+
+	del fill_color_gdk
+
