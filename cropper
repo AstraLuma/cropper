@@ -13,7 +13,7 @@ import pango
 import gio
 from gbuilder import BuilderWindow, resource
 from box import Box
-from boxmodel import BoxListStore
+from boxmodel import BoxListStore, make_absolute
 from imagespace import ImageSpace
 from optparse import OptionParser
 #from gobject.option import OptionParser # the args returned is just wrong
@@ -46,12 +46,6 @@ def permIter(seq):
 			rest_iter = permIter(seq[:i] + seq[i+1:])
 			for rest in rest_iter:
 				yield element_slice + rest
-
-def make_absolute(fn):
-	print "make_absolute:", fn,
-	rv = gio.File(fn)
-	print rv
-	return rv.get_uri()
 
 class Cropper(BuilderWindow):
 	window = property(lambda self: self.wCropper)

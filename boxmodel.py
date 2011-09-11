@@ -5,13 +5,15 @@ from box import Box
 from modelhelpers import GenericTreeStore
 #from gobject.propertyhelper import property as gprop
 from usefulgprop import property as gprop
-from vfsutils import make_absolute
-try:
-	import gnomevfs
-except ImportError:
-	gnomevfs = None
+import gio
 
-__all__ = 'BoxListStore',
+__all__ = 'BoxListStore', 'make_absolute'
+
+def make_absolute(fn):
+	print "make_absolute:", fn,
+	rv = gio.File(fn)
+	print rv
+	return rv.get_uri()
 
 #class tracedict(dict):
 #	def __setitem__(self, key, value):
@@ -90,10 +92,8 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	
 	# Internal methods
 	def _fileexists(self, row):
-		if gnomevfs is None:
-			return os.path.exists(self.__data[row][0])
-		else:
-			return gnomevfs.exists(self.__data[row][0])
+		#TODO: Make this async (somehow)
+		return gio.File(self.__data[row][0]).query_exists()
 	
 	def _abspath(self, path):
 		return os.path.abspath(path)
