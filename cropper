@@ -91,6 +91,12 @@ class Cropper(BuilderWindow):
 		self.tvAreas.set_headers_visible(False)
 		self.tvAreas.set_tooltip_column(11)
 		
+		self.isImage.connect("drag-data-received", self.on_drag_data_received)
+		self.isImage.drag_dest_set(
+			gtk.DEST_DEFAULT_MOTION | gtk.DEST_DEFAULT_HIGHLIGHT | gtk.DEST_DEFAULT_DROP,
+			[ ( "text/uri-list", 0, 0 ) ],
+			gtk.gdk.ACTION_COPY)
+		
 		if len(args):
 			if __debug__: print "args: %r" % args
 			self.Open(None, file=make_absolute(args[0]))
@@ -140,7 +146,13 @@ class Cropper(BuilderWindow):
 		self.isImage.next_color = self.get_next_color(self.isImage.next_color)
 	
 	def on_selection_changed(self, selection):
-		self.actions['Delete'].set_sensitive(bool(selection.count_selected_rows()))
+		self.aDelete.set_sensitive(bool(selection.count_selected_rows()))
+	
+	def on_drag_data_received(self, widget, context, x, y, selection, targetType, time):
+		print widget, context, x, y, selection, targetType, time
+		print repr(selection.get_uris())
+		#TODO: Load the files
+		context.finish(True, False, time)
 	
 	# Actions/UI stuff
 	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
@@ -320,7 +332,7 @@ class Cropper(BuilderWindow):
 
 if __name__ == '__main__':
 	options, args = parser.parse_args(sys.argv[1:])
-	app = Cropper(fname=resource('cropper.xml'), options=options, args=args)
+	app = Cropper(fname=resource('cropper.ui'), options=options, args=args)
 	
 #	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
 #	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')
