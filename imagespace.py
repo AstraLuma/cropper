@@ -275,10 +275,14 @@ class ImageSpace(gtk.Widget):
 			iw, ih = self.image.get_width(), self.image.get_height()
 		else:
 			iw, ih = 0, 0
+		
+		if __debug__: print self._vadj.lower, self._vadj.value, self._vadj.upper
+		
 		i2w = cairo.Matrix(
 			z,0,
 			0,z,
-			(self.allocation.width-iw*z)/2, (self.allocation.height-ih*z)/2
+			-self._hadj.value*z, 
+			-self._vadj.value*z,
 			)
 		
 		self._i2w_matrix = i2w
@@ -456,7 +460,7 @@ class ImageSpace(gtk.Widget):
 	SELECTSIZE = 2.0
 	TEMP_IS_SELECTED = False
 	
-	def draw_box_border(self, cr, c, r, s):
+	def draw_box_border(self, cr, c, r, s, linewidth):
 		if s:
 			cr.set_line_width(linewidth*self.SELECTSIZE)
 		else:
@@ -522,9 +526,9 @@ class ImageSpace(gtk.Widget):
 		# Draw the strokes
 		# We do this second so the fills don't obscure the strokes
 		for c,r,s in boxes:
-			self.draw_box_border(cr,c,r,s)
+			self.draw_box_border(cr,c,r,s, linewidth)
 		if self._temporary_box is not None:
-			self.draw_box_border(cr, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+			self.draw_box_border(cr, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED, linewidth)
 		
 		# Do this last, so that it appears on top of everything
 		if __debug__:
