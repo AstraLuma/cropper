@@ -274,7 +274,7 @@ class ImageSpace(gtk.Widget):
 		if self.image is not None:
 			iw, ih = self.image.get_width(), self.image.get_height()
 		else:
-			iw, ih = 0
+			iw, ih = 0, 0
 		i2w = cairo.Matrix(
 			z,0,
 			0,z,
@@ -455,6 +455,36 @@ class ImageSpace(gtk.Widget):
 	
 	SELECTSIZE = 2.0
 	TEMP_IS_SELECTED = False
+	
+	def draw_box_border(self, cr, c, r, s):
+		if s:
+			cr.set_line_width(linewidth*self.SELECTSIZE)
+		else:
+			cr.set_line_width(linewidth)
+		# draw border
+		cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
+		cr.rectangle(r)
+		cr.stroke()
+	
+	def draw_box_fill(self, cr, c, r, s):
+		# draw fill
+		if self.alpha > 0:
+			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
+			cr.rectangle(r)
+			cr.fill()
+	
+	def draw_box_row(self, model, path, row, boxes):
+		box, = model.get(row, int(self.box_col))
+		c = box.color
+		r = box.rect
+		r = gtk.gdk.Rectangle(*r)
+		r.width += 1
+		r.height += 1
+		s = False
+		if self.selection is not None:
+			s = self.selection.iter_is_selected(row)
+		boxes.append((c,r,s))
+	
 	def do_expose_event(self, event):
 		# The do_expose_event is called when the widget is asked to draw itself
 		# Remember that this will be called a lot of times, so it's usually
@@ -479,49 +509,22 @@ class ImageSpace(gtk.Widget):
 		# This all works
 		cr.set_line_width(linewidth)
 		cr.set_line_join(cairo.LINE_JOIN_MITER)
-		def draw_box_border(self, c, r, s):
-			if s:
-				cr.set_line_width(linewidth*self.SELECTSIZE)
-			else:
-				cr.set_line_width(linewidth)
-			# draw border
-			cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, 1.0)
-			cr.rectangle(r)
-			cr.stroke()
-		def draw_box_fill(self, c, r, s):
-			# draw fill
-			if self.alpha > 0:
-				cr.set_source_rgba(c.red/0xFFFF, c.green/0xFFFF, c.blue/0xFFFF, self.alpha/0xFF)
-				cr.rectangle(r)
-				cr.fill()
-		
-		boxes = []
-		def draw_box_row(model, path, row, self):
-			box, = model.get(row, int(self.box_col))
-			c = box.color
-			r = box.rect
-			r = gtk.gdk.Rectangle(*r)
-			r.width += 1
-			r.height += 1
-			s = False
-			if self.selection is not None:
-				s = self.selection.iter_is_selected(row)
-			boxes.append((c,r,s))
 		
 		# Draw the fills
 		if self.model is not None:
-			self.model.foreach(draw_box_row, self)
+			boxes = []
+			self.model.foreach(self.draw_box_row, boxes)
 			for c,r,s in boxes:
-				draw_box_fill(self,c,r,s)
+				self.draw_box_fill(cr,c,r,s)
 		if self._temporary_box is not None:
-			draw_box_fill(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+			self.draw_box_fill(cr, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
 		
 		# Draw the strokes
 		# We do this second so the fills don't obscure the strokes
 		for c,r,s in boxes:
-			draw_box_border(self,c,r,s)
+			self.draw_box_border(cr,c,r,s)
 		if self._temporary_box is not None:
-			draw_box_border(self, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
+			self.draw_box_border(cr, self._temporary_box.color, self._temporary_box.rect, self.TEMP_IS_SELECTED)
 		
 		# Do this last, so that it appears on top of everything
 		if __debug__:
