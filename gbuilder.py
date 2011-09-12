@@ -55,7 +55,7 @@ class BuilderWindow(object):
 		If you need to perform initialization, define an __init__() method. It
 		will be called after the XML is loaded, events connected, etc.
 		"""
-		print 'BuilderWindow.__new__()'
+		print 'BuilderWindow.__new__()', repr(__file__), repr(fname)
 		
 		self = super(BuilderWindow,cls).__new__(cls, fname=fname, domain=domain, *pargs, **kwargs)
 		
@@ -123,7 +123,7 @@ def resource(fn,sec="share", appname=None):
 		if sec[0] == '$':
 			sec=sec[1:]
 		return [
-			os.path.dirname(script), # For development and Win32
+			os.path.dirname(os.path.abspath(script)), # For development and Win32
 			os.path.join(sys.prefix, sec, appname), # Assuming a single, global prefix
 			# And now for some common prefix's
 			'/'+os.path.join('usr', 'local', sec, appname),
