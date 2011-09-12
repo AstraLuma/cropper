@@ -49,6 +49,7 @@ def permIter(seq):
 
 class Cropper(BuilderWindow):
 	window = property(lambda self: self.wCropper)
+	#TODO: Change this to directory and pattern, so we can do non-file sources.
 	filename = None
 	def __init__(self, options, args, *pargs, **kwargs):
 		if __debug__: print 'Cropper.__init__()'
@@ -99,7 +100,7 @@ class Cropper(BuilderWindow):
 		
 		if len(args):
 			if __debug__: print "args: %r" % args
-			self.Open(None, file=make_absolute(args[0]))
+			self.Open(file=make_absolute(args[0]))
 #		self.window.connect('key-press-event', self._keypress)
 	
 #	def _keypress(self, window, event):
@@ -150,8 +151,10 @@ class Cropper(BuilderWindow):
 	
 	def on_drag_data_received(self, widget, context, x, y, selection, targetType, time):
 		print widget, context, x, y, selection, targetType, time
+		print selection.selection, selection.target, selection.type, selection.format
 		print repr(selection.get_uris())
-		#TODO: Load the files
+		uri = selection.get_uris()[0]
+		self.Open(file=uri)
 		context.finish(True, False, time)
 	
 	# Actions/UI stuff
@@ -178,7 +181,7 @@ class Cropper(BuilderWindow):
 # ACTIONS
 #########
 	
-	def Open(self, action, **kwargs):
+	def Open(self, action=None, **kwargs):
 		if __debug__: print 'Open'
 		
 		if 'file' in kwargs:
