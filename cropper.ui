@@ -1,37 +1,162 @@
-<?xml version="1.0"?>
+<?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk+" version="2.16"/>
   <!-- interface-naming-policy toplevel-contextual -->
-  <object class="GtkUIManager" id="uimCropper"/>
+  <object class="GtkAction" id="aAbout">
+    <property name="label">About</property>
+    <property name="stock_id">gtk-about</property>
+    <signal name="activate" handler="About" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aAutoShrink">
+    <property name="label">Auto Shrink</property>
+    <signal name="activate" handler="AutoShrink" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aClear">
+    <property name="label">Clear</property>
+    <property name="stock_id">gtk-clear</property>
+    <signal name="activate" handler="Clear" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aCopy">
+    <property name="label">Copy</property>
+    <property name="stock_id">gtk-copy</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="Copy" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aCrop">
+    <property name="label">Crop</property>
+    <property name="stock_id">gtk-save</property>
+    <signal name="activate" handler="Crop" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aCut">
+    <property name="stock_id">gtk-cut</property>
+    <signal name="activate" handler="Cut" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aDelete">
+    <property name="label">Delete</property>
+    <property name="stock_id">gtk-delete</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="Delete" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aEditPreferences">
+    <property name="label">Edit Preferences</property>
+    <property name="stock_id">gtk-preferences</property>
+    <signal name="activate" handler="EditPreferences" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aFlipHorizontal">
+    <property name="label">Flip Horizontal</property>
+    <property name="icon_name">object-flip-horizontal</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="FlipHorizontal" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aFlipVertical">
+    <property name="label">Flip Vertical</property>
+    <property name="icon_name">object-flip-vertical</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="FlipVertical" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aOpen">
+    <property name="label">Open</property>
+    <property name="short_label">Open</property>
+    <property name="stock_id">gtk-open</property>
+    <signal name="activate" handler="Open" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aPaste">
+    <property name="label">Paste</property>
+    <property name="stock_id">gtk-paste</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="Paste" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aQuit">
+    <property name="label">Quit</property>
+    <property name="stock_id">gtk-quit</property>
+    <signal name="activate" handler="Quit" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aRotateCCW">
+    <property name="label">Rotate Counterclockwise</property>
+    <property name="icon_name">object-rotate-left</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="RotateCCW" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aRotateCW">
+    <property name="label">Rotate Clockwise</property>
+    <property name="icon_name">object-rotate-right</property>
+    <property name="sensitive">False</property>
+    <signal name="activate" handler="RotateCW" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aSelectAll">
+    <property name="label">Select All</property>
+    <property name="stock_id">gtk-select-all</property>
+    <signal name="activate" handler="SelectAll" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aZoom100">
+    <property name="label">Normal Size</property>
+    <property name="stock_id">gtk-zoom-100</property>
+    <signal name="activate" handler="ZoomNormal" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aZoomFit">
+    <property name="label">Best Fit</property>
+    <property name="stock_id">gtk-zoom-fit</property>
+    <signal name="activate" handler="ZoomFit" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aZoomIn">
+    <property name="label">Zoom In</property>
+    <property name="stock_id">gtk-zoom-in</property>
+    <signal name="activate" handler="ZoomIn" swapped="no"/>
+  </object>
+  <object class="GtkAction" id="aZoomOut">
+    <property name="label">Zoom Out</property>
+    <property name="stock_id">gtk-zoom-out</property>
+    <signal name="activate" handler="ZoomOut" swapped="no"/>
+  </object>
   <object class="GtkIconFactory" id="ifCropper">
     <sources>
       <source stock-id="drag-resize" filename="drag-resize.png"/>
     </sources>
   </object>
+  <object class="GtkRadioAction" id="raAdd">
+    <property name="label">Add</property>
+    <property name="stock_id">gtk-add</property>
+    <property name="draw_as_radio">True</property>
+    <signal name="changed" handler="Add" swapped="no"/>
+  </object>
+  <object class="GtkRadioAction" id="raSelect">
+    <property name="label">Select</property>
+    <property name="stock_id">drag-resize</property>
+    <property name="draw_as_radio">True</property>
+    <property name="value">1</property>
+    <property name="group">raAdd</property>
+    <signal name="changed" handler="Select" swapped="no"/>
+  </object>
+  <object class="GtkTreeSelection" id="tsBoxSelect"/>
   <object class="GtkWindow" id="wCropper">
+    <property name="can_focus">False</property>
     <property name="title" translatable="yes">cropper</property>
     <property name="icon_name">image</property>
-    <signal name="delete_event" handler="on_delete_event"/>
+    <signal name="delete-event" handler="on_delete_event" swapped="no"/>
     <child>
       <object class="GtkVBox" id="vbContent">
         <property name="visible">True</property>
-        <property name="orientation">vertical</property>
+        <property name="can_focus">False</property>
         <child>
           <object class="GtkMenuBar" id="mbMenu">
             <property name="visible">True</property>
+            <property name="can_focus">False</property>
             <child>
               <object class="GtkMenuItem" id="miFile">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_action_appearance">False</property>
                 <property name="label" translatable="yes">File</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="mFile">
                     <property name="visible">True</property>
+                    <property name="can_focus">False</property>
                     <child>
                       <object class="GtkImageMenuItem" id="imiOpen">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aOpen</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -39,8 +164,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiCrop">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aCrop</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -48,13 +173,14 @@
                     <child>
                       <object class="GtkSeparatorMenuItem" id="separatormenuitem1">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="imiQuit">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aQuit</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -66,21 +192,25 @@
             <child>
               <object class="GtkMenuItem" id="miEdit">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_action_appearance">False</property>
                 <property name="label" translatable="yes">Edit</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="mEdit">
                     <property name="visible">True</property>
+                    <property name="can_focus">False</property>
                     <child>
                       <object class="GtkSeparatorMenuItem" id="separatormenuitem2">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="imiCut">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aCut</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -88,6 +218,7 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiCopy">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aCopy</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
@@ -96,8 +227,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiPaste">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aPaste</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -105,8 +236,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiDelete">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aDelete</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -114,8 +245,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiClear">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aClear</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -123,13 +254,14 @@
                     <child>
                       <object class="GtkSeparatorMenuItem" id="separatormenuitem3">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                       </object>
                     </child>
                     <child>
                       <object class="GtkImageMenuItem" id="imiEditPreferences">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aEditPreferences</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -141,16 +273,19 @@
             <child>
               <object class="GtkMenuItem" id="miView">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_action_appearance">False</property>
                 <property name="label" translatable="yes">View</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="mView">
                     <property name="visible">True</property>
+                    <property name="can_focus">False</property>
                     <child>
                       <object class="GtkImageMenuItem" id="imiZoomIn">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aZoomIn</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -158,8 +293,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiZoomOut">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aZoomOut</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -167,8 +302,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiZoom100">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aZoom100</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -176,8 +311,8 @@
                     <child>
                       <object class="GtkImageMenuItem" id="imiZoomFit">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aZoomFit</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -189,16 +324,19 @@
             <child>
               <object class="GtkMenuItem" id="miHelp">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
+                <property name="use_action_appearance">False</property>
                 <property name="label" translatable="yes">Help</property>
                 <property name="use_underline">True</property>
                 <child type="submenu">
                   <object class="GtkMenu" id="mHelp">
                     <property name="visible">True</property>
+                    <property name="can_focus">False</property>
                     <child>
                       <object class="GtkImageMenuItem" id="imiAbout">
                         <property name="visible">True</property>
+                        <property name="can_focus">False</property>
                         <property name="related_action">aAbout</property>
-                        <property name="use_action_appearance">True</property>
                         <property name="use_underline">True</property>
                         <property name="use_stock">True</property>
                       </object>
@@ -210,17 +348,19 @@
           </object>
           <packing>
             <property name="expand">False</property>
+            <property name="fill">True</property>
             <property name="position">0</property>
           </packing>
         </child>
         <child>
           <object class="GtkToolbar" id="tbTools">
             <property name="visible">True</property>
+            <property name="can_focus">False</property>
             <child>
               <object class="GtkToolButton" id="tbOpen">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">aOpen</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -232,8 +372,8 @@
             <child>
               <object class="GtkToolButton" id="tbCrop">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">aCrop</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -245,6 +385,7 @@
             <child>
               <object class="GtkSeparatorToolItem" id="separatortoolitem1">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -253,8 +394,8 @@
             <child>
               <object class="GtkToolButton" id="tbDelete">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">aDelete</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -266,8 +407,8 @@
             <child>
               <object class="GtkToolButton" id="tbClear">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">aClear</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">toolbutton1</property>
                 <property name="use_underline">True</property>
               </object>
@@ -279,6 +420,7 @@
             <child>
               <object class="GtkSeparatorToolItem" id="separatortoolitem2">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
               </object>
               <packing>
                 <property name="expand">False</property>
@@ -287,8 +429,8 @@
             <child>
               <object class="GtkRadioToolButton" id="rtbAdd">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">raAdd</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">radiotoolbutton1</property>
                 <property name="use_underline">True</property>
                 <property name="active">True</property>
@@ -301,8 +443,8 @@
             <child>
               <object class="GtkRadioToolButton" id="rtbSelect">
                 <property name="visible">True</property>
+                <property name="can_focus">False</property>
                 <property name="related_action">raSelect</property>
-                <property name="use_action_appearance">True</property>
                 <property name="label" translatable="yes">radiotoolbutton1</property>
                 <property name="use_underline">True</property>
                 <property name="active">True</property>
@@ -316,6 +458,7 @@
           </object>
           <packing>
             <property name="expand">False</property>
+            <property name="fill">True</property>
             <property name="position">1</property>
           </packing>
         </child>
@@ -356,141 +499,24 @@
             </child>
           </object>
           <packing>
+            <property name="expand">True</property>
+            <property name="fill">True</property>
             <property name="position">2</property>
           </packing>
         </child>
         <child>
           <object class="GtkStatusbar" id="sbCropper">
             <property name="visible">True</property>
+            <property name="can_focus">False</property>
             <property name="spacing">2</property>
           </object>
           <packing>
             <property name="expand">False</property>
+            <property name="fill">True</property>
             <property name="position">3</property>
           </packing>
         </child>
       </object>
     </child>
   </object>
-  <object class="GtkAction" id="aOpen">
-    <property name="label">Open</property>
-    <property name="short_label">Open</property>
-    <property name="stock_id">gtk-open</property>
-    <signal name="activate" handler="Open"/>
-  </object>
-  <object class="GtkAction" id="aCrop">
-    <property name="label">Crop</property>
-    <property name="stock_id">gtk-save</property>
-    <signal name="activate" handler="Crop"/>
-  </object>
-  <object class="GtkAction" id="aQuit">
-    <property name="label">Quit</property>
-    <property name="stock_id">gtk-quit</property>
-    <signal name="activate" handler="Quit"/>
-  </object>
-  <object class="GtkAction" id="aClear">
-    <property name="label">Clear</property>
-    <property name="stock_id">gtk-clear</property>
-    <signal name="activate" handler="Clear"/>
-  </object>
-  <object class="GtkAction" id="aCopy">
-    <property name="label">Copy</property>
-    <property name="stock_id">gtk-copy</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="Copy"/>
-  </object>
-  <object class="GtkAction" id="aPaste">
-    <property name="label">Paste</property>
-    <property name="stock_id">gtk-paste</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="Paste"/>
-  </object>
-  <object class="GtkAction" id="aDelete">
-    <property name="label">Delete</property>
-    <property name="stock_id">gtk-delete</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="Delete"/>
-  </object>
-  <object class="GtkAction" id="aSelectAll">
-    <property name="label">Select All</property>
-    <property name="stock_id">gtk-select-all</property>
-    <signal name="activate" handler="SelectAll"/>
-  </object>
-  <object class="GtkAction" id="aZoomIn">
-    <property name="label">Zoom In</property>
-    <property name="stock_id">gtk-zoom-in</property>
-    <signal name="activate" handler="ZoomIn"/>
-  </object>
-  <object class="GtkAction" id="aZoomOut">
-    <property name="label">Zoom Out</property>
-    <property name="stock_id">gtk-zoom-out</property>
-    <signal name="activate" handler="ZoomOut"/>
-  </object>
-  <object class="GtkAction" id="aZoom100">
-    <property name="label">Normal Size</property>
-    <property name="stock_id">gtk-zoom-100</property>
-    <signal name="activate" handler="ZoomNormal"/>
-  </object>
-  <object class="GtkAction" id="aZoomFit">
-    <property name="label">Best Fit</property>
-    <property name="stock_id">gtk-zoom-fit</property>
-    <signal name="activate" handler="ZoomFit"/>
-  </object>
-  <object class="GtkAction" id="aFlipHorizontal">
-    <property name="label">Flip Horizontal</property>
-    <property name="icon_name">object-flip-horizontal</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="FlipHorizontal"/>
-  </object>
-  <object class="GtkAction" id="aFlipVertical">
-    <property name="label">Flip Vertical</property>
-    <property name="icon_name">object-flip-vertical</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="FlipVertical"/>
-  </object>
-  <object class="GtkAction" id="aRotateCW">
-    <property name="label">Rotate Clockwise</property>
-    <property name="icon_name">object-rotate-right</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="RotateCW"/>
-  </object>
-  <object class="GtkAction" id="aRotateCCW">
-    <property name="label">Rotate Counterclockwise</property>
-    <property name="icon_name">object-rotate-left</property>
-    <property name="sensitive">False</property>
-    <signal name="activate" handler="RotateCCW"/>
-  </object>
-  <object class="GtkAction" id="aEditPreferences">
-    <property name="label">Edit Preferences</property>
-    <property name="stock_id">gtk-preferences</property>
-    <signal name="activate" handler="EditPreferences"/>
-  </object>
-  <object class="GtkAction" id="aAutoShrink">
-    <property name="label">Auto Shrink</property>
-    <signal name="activate" handler="AutoShrink"/>
-  </object>
-  <object class="GtkAction" id="aAbout">
-    <property name="label">About</property>
-    <property name="stock_id">gtk-about</property>
-    <signal name="activate" handler="About"/>
-  </object>
-  <object class="GtkRadioAction" id="raAdd">
-    <property name="label">Add</property>
-    <property name="stock_id">gtk-add</property>
-    <property name="draw_as_radio">True</property>
-    <signal name="changed" handler="Add"/>
-  </object>
-  <object class="GtkRadioAction" id="raSelect">
-    <property name="label">Select</property>
-    <property name="icon_name">drag-resize</property>
-    <property name="draw_as_radio">True</property>
-    <property name="value">1</property>
-    <property name="group">raAdd</property>
-    <signal name="changed" handler="Select"/>
-  </object>
-  <object class="GtkAction" id="aCut">
-    <property name="stock_id">gtk-cut</property>
-    <signal name="activate" handler="Cut"/>
-  </object>
-  <object class="GtkTreeSelection" id="treeselection1"/>
 </interface>
