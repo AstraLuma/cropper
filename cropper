@@ -313,10 +313,10 @@ class Cropper(BuilderWindow):
 		props = {
 #			'version': """$Revision: 104 $""",
 			'name': 'cropper',
-			'logo-icon-name': 'image',
+			'logo-icon-name': self.wCropper.get_property('icon-name'),
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
-			'copyright': u'\N{COPYRIGHT SIGN} 2008 James Bliss',
-			'website': 'http://www.astro73.com/'
+			'copyright': u'\N{COPYRIGHT SIGN} 2011 James Bliss',
+			'website': 'https://github.com/astronouth7303/cropper'
 			}
 		for k,v in props.iteritems():
 			dlg.set_property(k,v)
