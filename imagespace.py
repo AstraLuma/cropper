@@ -319,16 +319,22 @@ class ImageSpace(gtk.Widget):
 		return frect(x,y,w,h)
 	
 	def rect2img(self, rect):
-		# Doesn't check _w2i_matrix since widget2imgcoords() does that
 		x,y = self.widget2imgcoords(rect.x, rect.y)
+		# Doesn't check _w2i_matrix since widget2imgcoords() does that
 		w,h = self._w2i_matrix.transform_distance(rect.width, rect.height)
 		return frect(x,y,w,h)
 	
 	def alloc2img(self):
 		"""is.alloc2img() -> Rectangle
-		Translates allocation to the images coordinates.
+		Translates the allocation space to the images coordinates.
 		"""
-		return self.rect2img(self.allocation)
+		#NOTE: self.allocation is relative to the window object, so we ignore X and Y
+		alloc = self.allocation
+		# This is ripped from rect2img()
+		x,y = self.widget2imgcoords(0, 0)
+		# Doesn't check _w2i_matrix since widget2imgcoords() does that
+		w,h = self._w2i_matrix.transform_distance(alloc.width, alloc.height)
+		return frect(x,y,w,h)
 	
 # *******************************
 # *** BOX TRACKING & HANDLING ***
@@ -389,11 +395,12 @@ class ImageSpace(gtk.Widget):
 	
 	def _update_boxes(self, x,y):
 		"""
-		Handles the fairly complex algorithm used to cache-and-calculate the 
+		Handles the somewhat complex algorithm used to cache and calculate the 
 		boxes that are underneath the cursor.
 		
 		Current Caching: A rectangle for which the current state is true.
 		"""
+		# XXX: If we change to bounding boxes to the image, then alloc can be changed to the image rect
 		alloc = self.alloc2img()
 		
 		if not rect_contains(alloc, x,y):
@@ -428,6 +435,7 @@ class ImageSpace(gtk.Widget):
 				if b not in newboxes:
 					changed = rect_diff(changed, b.rect, (x,y))
 			if changed == alloc: # This is so extrodinarily BAD that we should test for it.
+				# We test for this because if it were true, the cache would never clear
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
 				changed = None
@@ -552,13 +560,19 @@ class ImageSpace(gtk.Widget):
 		'SW':gtk.gdk.BOTTOM_LEFT_CORNER,
 		}
 	
+	# The place where the user clicked to add a box
 	_insert_start_coords = None
-	
+	# The place where the user clicked for rubber band selection (TODO)
 	_rubber_band_start = None
+	# The box and direction that will be resized when the mouse is clicked
 	_box_may_resize = None
 	_box_may_resize_dir = None
+	# The box and direction that is currently being resized
 	_box_is_resizing = None
 	_box_is_resizing_dir = None
+	# The X and Y coordinates of the east and south sides of the current rectangle (for resizing north and west)
+	_box_resize_east = None
+	_box_resize_south = None
 	def do_motion_notify_event(self, event):
 		"""
 		Handles updating all the cached info dealing with the mouse (eg, boxes, 
@@ -575,9 +589,9 @@ class ImageSpace(gtk.Widget):
 		
 		# Update box underneath cursor, for tooltip
 		ix, iy = icoords = self.widget2imgcoords(x,y)
-#		if __debug__: 
-#			sys.stdout.write(repr(icoords)+'\r')
-#			sys.stdout.flush()
+		if __debug__: 
+			sys.stdout.write(repr((x,y))+' '+repr(icoords)+'\r')
+			sys.stdout.flush()
 		if self._update_boxes(*icoords):
 			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
 			self.trigger_tooltip_query()
@@ -587,8 +601,8 @@ class ImageSpace(gtk.Widget):
 			nr = pt2rect(icoords, self._insert_start_coords)
 			redraw = nr.union(self._temporary_box.rect)
 			self._temporary_box.rect = nr
-			#self.queue_draw_area(*redraw)
-			self.queue_draw()
+			#self.queue_draw_area(*self.rect2widget(redraw))
+			self.queue_draw() #REDRAW: If we implement partial redraw, fix this
 			self.emit('insert-box-changed', self._temporary_box)
 		elif self._box_is_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
 			d = self._box_is_resizing_dir
@@ -596,16 +610,19 @@ class ImageSpace(gtk.Widget):
 			r = frect(*b.rect)
 			obox = frect(*b.rect)
 			if 'W' in d:
-				r.x, r.width = (ix), (r.x + r.width - ix)
+				r.x = ix
+				r.width = self._box_resize_east - r.x # Use r.x because it's pre-rounded
 			elif 'E' in d:
 				r.width = (ix - r.x)
 			if 'N' in d:
-				r.y, r.height = (iy), (r.y + r.height - iy)
+				r.y = iy
+				r.height = self._box_resize_south - r.y # Use r.y because it's pre-rounded
 			elif 'S' in d:
 				r.height = (iy - r.y)
 			b.rect = r
 #			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
-			self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
+			#self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
+			self.queue_draw() #REDRAW: If we implement partial redraw, fix this
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
 				gtk.gdk.BUTTON5_MASK): # Hover
@@ -625,9 +642,10 @@ class ImageSpace(gtk.Widget):
 		if event.button == 1:
 			if self._box_may_resize is not None:
 				if __debug__: print "Start resize"
-				# FIXME: Calculate offset
 				self._box_is_resizing = self._box_may_resize
 				self._box_is_resizing_dir = self._box_may_resize_dir
+				self._box_resize_east = self._box_is_resizing.x + self._box_is_resizing.width
+				self._box_resize_south = self._box_is_resizing.y + self._box_is_resizing.height
 			elif self.mode == self.INSERT:
 				# Begin new box
 				self._insert_start_coords = self.widget2imgcoords(event.x, event.y)
