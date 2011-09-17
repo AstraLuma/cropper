@@ -10,15 +10,15 @@ import gtk
 gtk.gdk.threads_init()
 #gobject.threads_init()
 import gio, gobject, glib
+from optparse import OptionParser
+import sys, os, subprocess
+import PIL.Image
+from cStringIO import StringIO
+
 from gbuilder import BuilderWindow, resource
 from box import Box
 from boxmodel import BoxListStore, make_absolute
 from imagespace import ImageSpace
-from optparse import OptionParser
-#from gobject.option import OptionParser # the args returned is just wrong
-import sys, os, subprocess
-import PIL.Image
-from cStringIO import StringIO
 
 __version__ = 'dev'
 
@@ -55,6 +55,8 @@ def find_pictures_dir():
 	return gio.File(path=glib.get_user_special_dir(glib.USER_DIRECTORY_PICTURES))
 
 class Cropper(BuilderWindow):
+	__glade_file__ = 'cropper.ui'
+	
 	window = property(lambda self: self.wCropper)
 	#TODO: Change this to directory and pattern, so we can do non-file sources.
 	filename = None
@@ -414,7 +416,7 @@ class Cropper(BuilderWindow):
 
 if __name__ == '__main__':
 	options, args = parser.parse_args(sys.argv[1:])
-	app = Cropper(fname=resource('cropper.ui'), options=options, args=args)
+	app = Cropper(options=options, args=args)
 	
 #	app.add_box('test1.gif', ( 75,131,354,547), '#F0A')
 #	app.add_box('test2.gif', ( 15, 22,467,191), '#AF0')

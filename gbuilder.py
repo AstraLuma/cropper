@@ -14,8 +14,10 @@ class BuilderWindow(object):
 	"""
 	Inherit from this in order to get some cool GtkBuilder automagick.
 	
-	Set the __roots__ class property to a list of names of the root widgets to 
-	load. If unset, all widgets are loaded
+	Class properties:
+	* __roots__: a list of names of the root widgets to load. If unset, all 
+	             widgets are loaded.
+	* __glade_file__: The XML file containing the UI information.
 	
 	For all controls in the XML, a property matching their ID is assigned to it.
 	ie, if you have a control with id="MyButton", then 
@@ -23,11 +25,6 @@ class BuilderWindow(object):
 	
 	Properties:
 	 * _builder - The gtk.Builder instance from which our widgets were loaded.
-	
-	This class is not multiple-inheritance safe:
-	 * super() is used
-	 * __new__() is callable only with the arguments defined in this class
-	 * super().__new__() is called with no arguments
 	"""
 	
 	__roots__ = None
@@ -43,9 +40,8 @@ class BuilderWindow(object):
 		else:
 			raise AttributeError, "%r object has no attribute %r" % (type(self).__name__, name)
 	
-	def __new__(cls, fname, domain=None, *pargs, **kwargs):
+	def __new__(cls, domain=None, *pargs, **kwargs):
 		"""BuilderWindow(fname, root="", domain="") -> BuilderWindow
-		 * fname : the XML file name
 		 * root : the widget node in fname to start building from
 		 * domain : the translation domain for the XML file (or "" for default)
 		
@@ -55,11 +51,11 @@ class BuilderWindow(object):
 		If you need to perform initialization, define an __init__() method. It
 		will be called after the XML is loaded, events connected, etc.
 		"""
-		print 'BuilderWindow.__new__()', repr(__file__), repr(fname)
 		
-		self = super(BuilderWindow,cls).__new__(cls, fname=fname, domain=domain, *pargs, **kwargs)
+		self = super(BuilderWindow,cls).__new__(cls, domain=domain, *pargs, **kwargs)
 		
 		# Get the XML
+		fname = resource(cls.__glade_file__)
 		self._builder = gtk.Builder()
 		if domain:
 			self._builder.set_translation_domain(domain)
