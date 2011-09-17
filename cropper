@@ -64,6 +64,7 @@ class Cropper(BuilderWindow):
 		if __debug__: print 'Cropper.__init__()'
 		
 		self.crop_dir = find_pictures_dir()
+		self.fcbCropDir.set_current_folder_file(self.crop_dir)
 		self.crop_pattern = '%i'
 		
 		#TODO: Put all of this into GtkBuilder
@@ -85,6 +86,8 @@ class Cropper(BuilderWindow):
 		
 		self.crpExists = gtk.CellRendererPixbuf()
 		self.crtFilename = gtk.CellRendererText()
+		self.crtFilename.set_property('editable', True)
+		self.crtFilename.connect('edited', self.on_cell_edited, self.model)
 		self.crtColor = gtk.CellRendererText()
 		self.crtColor.set_property('background-set', True)
 		self.crtColor.set_property('text', ' ')
@@ -177,6 +180,14 @@ class Cropper(BuilderWindow):
 		self.Open(file=gio.File(uri=uri))
 		context.finish(True, False, time)
 	
+	def on_fcbCropDir_file_set(self, widget):
+		self.crop_dir = self.fcbCropDir.get_file()
+	
+	def on_cell_edited(self, cell, path, new_text, model):
+		i = model.get_iter(path)
+		#FIXME: On windows, add extension if it's not there.
+		model.set_value(i, 0, new_text)
+	
 # Not even sure what this does, and doesn't seem to have any effect. Diking it out.
 	# Actions/UI stuff
 #	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
@@ -239,12 +250,14 @@ class Cropper(BuilderWindow):
 		self._loadfromgio(pbl, filename)
 		
 		self.crop_dir = filename.get_parent()
+		self.fcbCropDir.set_current_folder_file(self.crop_dir)
 		def qia(cd, result):
 			fi = cd.query_info_finish(result)
 			cdi = fi.get_attribute_as_string(gio.FILE_ATTRIBUTE_ACCESS_CAN_WRITE)
 			if cdi is None or cdi is False:
 				# Can't write to the same directory, prompt later.
-				self.crop_dir = None
+				self.crop_dir = find_pictures_dir()
+				self.fcbCropDir.set_current_folder_file(self.crop_dir)
 		self.crop_dir.query_info_async(gio.FILE_ATTRIBUTE_ACCESS_CAN_WRITE, qia)
 		before, after = os.path.splitext(filename.get_basename())
 		self.crop_pattern = before+'.%i'+after

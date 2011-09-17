@@ -5,9 +5,10 @@
 Some more generic TreeModel mixins.
 """
 from __future__ import division, absolute_import, with_statement
+import gtk
 __all__ = 'GenericTreeStore', 'GenericMovableModel'
 
-class GenericTreeStore:
+class GenericTreeStore(gtk.GenericTreeModel):
 	# def on_set_value(self, rowref, column, value)
 	# def on_remove(self, rowref)
 	# def on_clear(self)
@@ -20,14 +21,14 @@ class GenericTreeStore:
 	def set_value(self, iter, column, value):
 		rowref = self.get_user_data(iter)
 		self.on_set_value(rowref, column, value)
-		path = () if iter is None else self.on_get_path(ref)
+		path = () if iter is None else self.on_get_path(rowref)
 		self.row_changed(path, iter)
 	
 	def set(self, iter, *pargs):
-		ref = self.get_user_data(iter)
+		rowref = self.get_user_data(iter)
 		for col, data in (pargs[i:i+2] for i in xrange(0, len(pargs), 2)):
 			self.on_set_value(ref, col, data)
-		path = () if iter is None else self.on_get_path(ref)
+		path = () if iter is None else self.on_get_path(rowref)
 		self.row_changed(path, iter)
 	
 	def remove(self, iter):

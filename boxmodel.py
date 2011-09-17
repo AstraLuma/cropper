@@ -35,7 +35,7 @@ def make_absolute(fn):
 #		print 'tracedict.clear'
 #		super(tracedict, self).clear()
 
-class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
+class BoxListStore(GenericTreeStore):
 	"""
 	Columns:
 	 0. filename (rw)
@@ -211,7 +211,7 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 		try:
 			row = self.__data[idx]
 			box = row[1]
-			if not isinstance(value, self._col_types[idx]):
+			if not isinstance(value, self._col_types[column]):
 				raise TypeError, "Column %i expecting %s, got %s" % (
 					idx, self._col_types[idx].__name__, type(value).__name__)
 			if column in self._ro_columns:
