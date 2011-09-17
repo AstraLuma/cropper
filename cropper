@@ -6,11 +6,10 @@ cropper [file]
 An app to easily crop an image into multiple pieces.
 """
 from __future__ import with_statement, division, absolute_import
-import gtk, gobject
+import gtk
 gtk.gdk.threads_init()
 #gobject.threads_init()
-import pango
-import gio
+import gio, gobject, glib
 from gbuilder import BuilderWindow, resource
 from box import Box
 from boxmodel import BoxListStore, make_absolute
@@ -20,6 +19,8 @@ from optparse import OptionParser
 import sys, os, subprocess
 import PIL.Image
 from cStringIO import StringIO
+
+__version__ = 'dev'
 
 BUFSIZE = 8*1024 #8K # Amount to read in one go
 
@@ -47,12 +48,24 @@ def permIter(seq):
 			for rest in rest_iter:
 				yield element_slice + rest
 
+def find_pictures_dir():
+	"""find_pictures_dir() -> gio.File
+	Returns the user's pictures folder.
+	"""
+	return gio.File(path=glib.get_user_special_dir(glib.USER_DIRECTORY_PICTURES))
+
 class Cropper(BuilderWindow):
 	window = property(lambda self: self.wCropper)
 	#TODO: Change this to directory and pattern, so we can do non-file sources.
 	filename = None
+	crop_dir = None
+	crop_pattern = '%i'
 	def __init__(self, options, args, *pargs, **kwargs):
 		if __debug__: print 'Cropper.__init__()'
+		
+		self.crop_dir = find_pictures_dir()
+		self.crop_pattern = '%i'
+		
 		#TODO: Put all of this into GtkBuilder
 		self.model = BoxListStore()
 		self.model.exist_image = 'filesave'
@@ -122,11 +135,9 @@ class Cropper(BuilderWindow):
 		self.model.append([fn, box])
 	
 	def get_next_filename(self):
-		# TODO: When we have the filename, turn it into a conglamoratation
 		if self.filename is None:
 			return ''
-		before, after = os.path.splitext(self.filename)
-		return '%s.%i%s' % (before, len(self.model), after)
+		return self.crop_pattern % len(self.model)
 	
 	_color_iter = None
 	def get_next_color(self, color):
@@ -137,6 +148,15 @@ class Cropper(BuilderWindow):
 		except StopIteration:
 			self._color_iter = None
 			return self.get_next_color(color)
+	
+	def show_error_dialog(self, msg, sec_msg):
+		"""
+		Displays an error dialog. We don't care what the user clicks on.
+		"""
+		dlg = gtk.MessageDialog(self.wCropper, gtk.DIALOG_DESTROY_WITH_PARENT, gtk.MESSAGE_ERROR, gtk.BUTTONS_OK, msg)
+		dlg.format_secondary_text(sec_msg)
+		dlg.connect('response', lambda *_: dlg.destroy())
+		dlg.show_all()
 	
 	# Event handlers
 	def on_delete_event(self, widget, event):
@@ -154,28 +174,29 @@ class Cropper(BuilderWindow):
 		print selection.selection, selection.target, selection.type, selection.format
 		print repr(selection.get_uris())
 		uri = selection.get_uris()[0]
-		self.Open(file=uri)
+		self.Open(file=gio.File(uri=uri))
 		context.finish(True, False, time)
 	
+# Not even sure what this does, and doesn't seem to have any effect. Diking it out.
 	# Actions/UI stuff
-	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
-	def add_menubar(self, menubar):
-		props = self.vbContent.child_get(self.mbMenu, *self.PROPS)
-		self.vbContent.remove(self.mbMenu)
-		self.mbMenu = menubar
-		params = []
-		for k,v in zip(self.PROPS, props):
-			params += [k,v]
-		self.vbContent.add_with_properties(self.mbMenu, *params)
-	
-	def add_toolbar(self, toolbar):
-		props = self.vbContent.child_get(self.tbTools, *self.PROPS)
-		self.vbContent.remove(self.tbTools)
-		self.tbTools = toolbar
-		params = []
-		for k,v in zip(self.PROPS, props):
-			params += [k,v]
-		self.vbContent.add_with_properties(self.tbTools, *params)
+#	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
+#	def add_menubar(self, menubar):
+#		props = self.vbContent.child_get(self.mbMenu, *self.PROPS)
+#		self.vbContent.remove(self.mbMenu)
+#		self.mbMenu = menubar
+#		params = []
+#		for k,v in zip(self.PROPS, props):
+#			params += [k,v]
+#		self.vbContent.add_with_properties(self.mbMenu, *params)
+#	
+#	def add_toolbar(self, toolbar):
+#		props = self.vbContent.child_get(self.tbTools, *self.PROPS)
+#		self.vbContent.remove(self.tbTools)
+#		self.tbTools = toolbar
+#		params = []
+#		for k,v in zip(self.PROPS, props):
+#			params += [k,v]
+#		self.vbContent.add_with_properties(self.tbTools, *params)
 
 #########
 # ACTIONS
@@ -194,45 +215,90 @@ class Cropper(BuilderWindow):
 					gtk.STOCK_OPEN, gtk.RESPONSE_OK,
 					)
 				)
+			if self.filename:
+				dlg.set_file(self.filename)
+			else:
+				dlg.set_current_folder_file(self.crop_dir)
 			dlg.set_use_preview_label(True)
 			dlg.set_select_multiple(False)
 			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
 				dlg.destroy()
 				return
-			filename = dlg.get_uri()
+			filename = dlg.get_file()
 			dlg.destroy()
+		
+		self.filename = filename
 		
 		# Open image
 		self.model.clear()
-		self.filename = filename
 		#self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
 		#Use gtk.gdk.PixbufLoader
 		# open the file
 		pbl = gtk.gdk.PixbufLoader()
 		self.isImage.loadfrompixbuf(pbl)
-		self._loadfromgio(pbl, gio.File(filename))
+		self._loadfromgio(pbl, filename)
+		
+		self.crop_dir = filename.get_parent()
+		def qia(cd, result):
+			fi = cd.query_info_finish(result)
+			cdi = fi.get_attribute_as_string(gio.FILE_ATTRIBUTE_ACCESS_CAN_WRITE)
+			if cdi is None or cdi is False:
+				# Can't write to the same directory, prompt later.
+				self.crop_dir = None
+		self.crop_dir.query_info_async(gio.FILE_ATTRIBUTE_ACCESS_CAN_WRITE, qia)
+		before, after = os.path.splitext(filename.get_basename())
+		self.crop_pattern = before+'.%i'+after
 	
 	imagedata = None
 	
 	def _loadfromgio(self, pbl, fil):
 		#TODO: Reimplement progressive reading
 		def _open(f, result):
-			s = fil.read_finish(result)
-			if s is None:
-				#TODO: Check the error and inform the user
-				pbl.close()
+			try:
+				s = fil.read_finish(result)
+#			except (gio.Error), err:
+			except Exception, err:
+				self.show_error_dialog("Error loading image", err.message)
 			else:
 				data = s.read()
 				self.imagedata += data
-				pbl.write(data)
-				pbl.close()
+				try:
+					pbl.write(data)
+				except Exception, err:
+					self.show_error_dialog("Error loading image", err.message)
+			finally:
+				try:
+					pbl.close()
+				except Exception, err:
+					if self.imagedata:
+						self.show_error_dialog("Error loading image", err.message)
+					else:
+						pass # Not really an error
 		self.imagedata = ''
 		fil.read_async(_open)
 	
 	def Crop(self, action):
 		if __debug__: print 'Crop'
+		if self.crop_dir is None:
+			#Ask the user
+			dlg = gtk.FileChooserDialog(parent=self.wCropper,
+				action=gtk.FILE_CHOOSER_ACTION_SELECT_FOLDER, 
+				buttons=(
+					gtk.STOCK_CANCEL, gtk.RESPONSE_CANCEL,
+					gtk.STOCK_OPEN, gtk.RESPONSE_OK,
+					)
+				)
+			dlg.set_file(self.filename)
+			dlg.set_use_preview_label(True)
+			dlg.set_select_multiple(False)
+			if dlg.run() in (gtk.RESPONSE_CANCEL, gtk.RESPONSE_NONE):
+				dlg.destroy()
+				return
+			filename = dlg.get_file()
+			dlg.destroy()
+		
 		#TODO: Make this async
-		#TODO: Ask if there's conflicts
+		#TODO: Check for conflicts, and ask user (make use of gio etags?)
 		
 		origin = PIL.Image.open(StringIO(self.imagedata))
 		
@@ -241,7 +307,7 @@ class Cropper(BuilderWindow):
 			r = box.rect
 			img = origin.crop((r.x, r.y, r.x+r.width, r.y+r.height))
 			
-			dest = gio.File(fn)
+			dest = self.crop_dir.get_child(fn)
 			ext = os.path.splitext(dest.get_basename())[1].lower()
 			img.save(dest.replace('', False), PIL.Image.EXTENSION.get(ext, origin.format))
 		# Update the model
@@ -311,7 +377,7 @@ class Cropper(BuilderWindow):
 	def About(self, action):
 		dlg = gtk.AboutDialog()
 		props = {
-#			'version': """$Revision: 104 $""",
+			'version': __version__,
 			'name': 'cropper',
 			'logo-icon-name': self.wCropper.get_property('icon-name'),
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
@@ -350,5 +416,5 @@ if __name__ == '__main__':
 	# Run
 	app.present()
 	if __debug__: print "Model data:", map(tuple, app.model)
-	gtk.gdk.set_show_events(True)
+	if __debug__: gtk.gdk.set_show_events(True)
 	gtk.main()

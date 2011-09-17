@@ -13,7 +13,7 @@ def make_absolute(fn):
 	print "make_absolute:", fn,
 	rv = gio.File(fn)
 	print rv
-	return rv.get_uri()
+	return rv
 
 #class tracedict(dict):
 #	def __setitem__(self, key, value):
@@ -101,9 +101,8 @@ class BoxListStore(gtk.GenericTreeModel, GenericTreeStore):
 	def _createrow(self, fn=None, box=None):
 		rv = [None]*4
 		if fn is not None:
-			fn = make_absolute(fn)
 			rv[0] = fn
-			rv[2] = gobject.filename_display_basename(fn)
+			rv[2] = gobject.filename_display_basename(fn) # Getting the display name doesn't work if the file doesn't exist.
 		else:
 			rv[0] = rv[2] = ''
 		rv[1] = Box()
