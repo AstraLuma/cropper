@@ -2,7 +2,7 @@
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject
 #from gobject.propertyhelper import property as gprop
-from usefulgprop import property as gprop
+from .usefulgprop import property as gprop
 
 __all__ = 'Box',
 

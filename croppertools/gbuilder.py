@@ -7,7 +7,7 @@ Defines a class which allows for easy use of GtkBuilder. Based on SubIM.
 ## conditions:
 ##  1. This notice remains here
 ##  2. You send me a note that you're using it. I just like to know.
-import gtk
+import gtk, sys, os.path
 __all__ = 'BuilderWindow', 'resource'
 
 class BuilderWindow(object):
@@ -114,11 +114,13 @@ def resource(fn, sec="share", appname=None):
 	script = sys.argv[0]
 	if appname is None:
 		appname = os.path.basename(script)
+	if __debug__: print "Resource:", script, appname
 	def _resource_paths(fn,sec,appname):
 		if sec[0] == '$':
 			sec=sec[1:]
 		return [
 			os.path.dirname(os.path.abspath(script)), # For development and Win32
+			os.path.join(os.path.dirname(__file__), '..', sec), # Dev
 			os.path.join(sys.prefix, sec, appname), # Assuming a single, global prefix
 			# And now for some common prefix's
 			'/'+os.path.join('usr', 'local', sec, appname),

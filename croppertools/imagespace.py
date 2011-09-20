@@ -8,10 +8,10 @@ change-rect debugger.
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys, cairo
 #from glade import CustomWidget
-from rectutils import *
-from box import Box
+from .rectutils import *
+from .box import Box
 #from gobject.propertyhelper import property as gprop
-from usefulgprop import property as gprop
+from .usefulgprop import property as gprop
 
 __all__ = 'ImageSpace',
 

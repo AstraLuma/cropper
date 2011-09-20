@@ -1,10 +1,10 @@
 import gtk, os, gobject
 from gtk import gdk
 from gobject import TYPE_DOUBLE
-from box import Box
-from modelhelpers import GenericTreeStore
+from .box import Box
+from .modelhelpers import GenericTreeStore
 #from gobject.propertyhelper import property as gprop
-from usefulgprop import property as gprop
+from .usefulgprop import property as gprop
 import gio
 
 __all__ = 'BoxListStore', 'make_absolute'
