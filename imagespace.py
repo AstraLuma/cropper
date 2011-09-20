@@ -618,7 +618,7 @@ class ImageSpace(gtk.Widget):
 				r.height = (iy - r.y)
 			b.rect = r
 #			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
-			#self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
+			#self.queue_draw_area(*self.rect2widget(obox.union(b.rect)))
 			self.queue_draw() #REDRAW: If we implement partial redraw, fix this
 			#XXX: Should we draw immediately instead of queueing one?
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
@@ -652,7 +652,7 @@ class ImageSpace(gtk.Widget):
 				self.emit('insert-box-changed', self._temporary_box)
 			elif self.mode == self.SELECT:
 				# Change selection
-				# TODO: Rubber banding
+				# TODO: Rubber band selection
 				if self.selection is None: return True
 				boxes = self.get_boxes_under_cursor(event.x, event.y)
 				rows = []
@@ -802,7 +802,7 @@ class ImageSpace(gtk.Widget):
 	def do_set_scroll_adjustments(self, hadj, vadj):
 		if __debug__: print "do_set_scroll_adjustments", hadj, vadj
 		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
-		#FIXME: Rewrite this so that we use None instead of dummy adjustments?
+		#XXX: Rewrite this so that we use None instead of dummy adjustments?
 		if not hadj and self._hadj:
 			hadj = new_adj()
 		

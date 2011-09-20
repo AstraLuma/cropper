@@ -28,7 +28,8 @@ class BuilderWindow(object):
 	"""
 	
 	__roots__ = None
-	__slots__ = '_builder','__dict__','__weakref__'
+	__glade_file__ = None
+	__slots__ = '_builder', '__dict__', '__weakref__'
 	
 	def __getattr__(self, name):
 		val = None
@@ -52,7 +53,7 @@ class BuilderWindow(object):
 		will be called after the XML is loaded, events connected, etc.
 		"""
 		
-		self = super(BuilderWindow,cls).__new__(cls, domain=domain, *pargs, **kwargs)
+		self = super(BuilderWindow, cls).__new__(cls, domain=domain, *pargs, **kwargs)
 		
 		# Get the XML
 		fname = resource(cls.__glade_file__)
@@ -74,11 +75,11 @@ class ResourceNotFoundWarning(Warning):
 		super(ResourceNotFoundWarning, self).__init__()
 		self.filename = fn
 	def __unicode__(self):
-		return u"Couldn't find resource %r" % fn
+		return u"Couldn't find resource %r" % self.filename
 	def __str__(self):
 		return str(unicode(self))
 
-def resource(fn,sec="share", appname=None):
+def resource(fn, sec="share", appname=None):
 	"""resource(filename. section="share", appname=None) -> string
 	Attempts to locate a file given a section in a cross-platform manner.
 	
@@ -110,12 +111,10 @@ def resource(fn,sec="share", appname=None):
 	This function is geared towards files that are installed with the script, 
 	not files that are created by the app (eg in /var/run, /var/log, /tmp)
 	"""
-	import sys, os
 	script = sys.argv[0]
 	if appname is None:
 		appname = os.path.basename(script)
 	def _resource_paths(fn,sec,appname):
-		import sys, os
 		if sec[0] == '$':
 			sec=sec[1:]
 		return [
@@ -143,7 +142,8 @@ def resource(fn,sec="share", appname=None):
 			f = os.path.join(path, fn)
 			if os.path.exists(f):
 				return f
-		except: pass
+		except:
+			pass
 	else:
 		import warnings
 		warnings.warn(ResourceNotFoundWarning(fn))

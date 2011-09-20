@@ -1,6 +1,6 @@
 #-*- coding: utf-8 -*-
 from __future__ import with_statement, division, absolute_import
-import gtk, gobject, sys
+import gtk, gobject
 #from gobject.propertyhelper import property as gprop
 from usefulgprop import property as gprop
 
@@ -114,33 +114,29 @@ class Box(gobject.GObject):
 		gobject.GObject.__init__(self)
 		self.rect = rect if rect is not None else gtk.gdk.Rectangle()
 		self.color = color if color is not None else gtk.gdk.Color()
-#		self.connect('notify::rect', lambda o,p: sys.stdout.write("Rect changed: %r %r\n" % (o.rect, list(o.rect))))
-#		self.connect('notify::x', lambda o,p: sys.stdout.write("X changed: %r %r\n" % (o.rect, list(o.rect))))
-#		self.connect('notify::y', lambda o,p: sys.stdout.write("Y changed: %r %r\n" % (o.rect, list(o.rect))))
-#		self.connect('notify::width', lambda o,p: sys.stdout.write("Width changed: %r %r\n" % (o.rect, list(o.rect))))
-#		self.connect('notify::height', lambda o,p: sys.stdout.write("Height changed: %r %r\n" % (o.rect, list(o.rect))))
 	
-	def _rect_notify(self,obj,prop):
-		if obj is self.rect and prop.name in ('x','y','width','height'):
-			self.emit('notify::'+prop.name, prop)
-	def _connect_rect(self, rect):
-#		self.rect_nid = rect.connect('notify', self._rect_notify)
-		pass
-	def _disconnect_rect(self, rect):
-#		rect.disconnect(self._rect_nid)
-#		del self._rect_nid
-		pass
-	
-	def _color_notify(self,obj,prop):
-		if obj is self._color and prop.name in ('pixel','red','green','blue'):
-			self.emit('notify::'+prop.name, prop)
-	def _connect_color(self, color):
-#		self._color_nid = color.connect('notify', self._color_notify)
-		pass
-	def _disconnect_color(self, color):
-#		color.disconnect(self._color_nid)
-#		del self._color_nid
-		pass
+# I would use these, but Boxed objects don't have events.
+#	def _rect_notify(self,obj,prop):
+#		if obj is self.rect and prop.name in ('x','y','width','height'):
+#			self.emit('notify::'+prop.name, prop)
+#	def _connect_rect(self, rect):
+##		self.rect_nid = rect.connect('notify', self._rect_notify)
+#		pass
+#	def _disconnect_rect(self, rect):
+##		rect.disconnect(self._rect_nid)
+##		del self._rect_nid
+#		pass
+#	
+#	def _color_notify(self,obj,prop):
+#		if obj is self._color and prop.name in ('pixel','red','green','blue'):
+#			self.emit('notify::'+prop.name, prop)
+#	def _connect_color(self, color):
+##		self._color_nid = color.connect('notify', self._color_notify)
+#		pass
+#	def _disconnect_color(self, color):
+##		color.disconnect(self._color_nid)
+##		del self._color_nid
+#		pass
 	
 	def __repr__(self):
 		return "<%s rect=(%i,%i, %i,%i) color=(0x%X, 0x%X, 0x%X)>" % (
