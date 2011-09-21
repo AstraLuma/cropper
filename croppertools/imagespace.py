@@ -8,10 +8,10 @@ change-rect debugger.
 from __future__ import with_statement, division, absolute_import
 import gtk, gobject, sys, cairo
 #from glade import CustomWidget
-from rectutils import *
-from box import Box
+from .rectutils import *
+from .box import Box
 #from gobject.propertyhelper import property as gprop
-from usefulgprop import property as gprop
+from .usefulgprop import property as gprop
 
 __all__ = 'ImageSpace',
 
@@ -43,7 +43,7 @@ class ImageSpace(gtk.Widget):
 		'size-allocate': 'override',
 		'size-request' : 'override',
 		'set-scroll-adjustments': (gobject.SIGNAL_RUN_LAST, None, (gtk.Adjustment, gtk.Adjustment)),
-#		'query-tooltip': 'override',
+		'query-tooltip': 'override',
 		}
 	
 # ******************
@@ -199,12 +199,6 @@ class ImageSpace(gtk.Widget):
 		# the style (theme engine) tells us.
 		self.style.set_background(self.window, gtk.STATE_NORMAL)
 		self.window.move_resize(*self.allocation)
-		
-		# Some extra stuff
-		self.gc = self.style.fg_gc[gtk.STATE_NORMAL]
-		#self.connect("motion_notify_event", self.do_motion_notify_event)
-#		self.connect("query-tooltip", self.do_query_tooltip_event)
-		#self.set_tooltip_text('spam&eggs')
 	
 	def do_unrealize(self):
         # The do_unrealized method is responsible for freeing the GDK resources
@@ -400,7 +394,6 @@ class ImageSpace(gtk.Widget):
 		
 		Current Caching: A rectangle for which the current state is true.
 		"""
-		# XXX: If we change to bounding boxes to the image, then alloc can be changed to the image rect
 		alloc = self.alloc2img()
 		
 		if not rect_contains(alloc, x,y):
@@ -435,7 +428,7 @@ class ImageSpace(gtk.Widget):
 				if b not in newboxes:
 					changed = rect_diff(changed, b.rect, (x,y))
 			if changed == alloc: # This is so extrodinarily BAD that we should test for it.
-				# We test for this because if it were true, the cache would never clear
+				# It's bad because if it were true, the cache would never clear
 				from warnings import warn
 				warn("The chosen change rect was the allocation. THIS SHOULD'T HAPPEN.")
 				changed = None
@@ -451,11 +444,11 @@ class ImageSpace(gtk.Widget):
 		"""is.get_boxes_under_cursor() -> (Box, ...)
 		Return the list of boxes currently under the cursor, in some order
 		"""
-		if not self._boxes_under_cursor or not self._changed_rect or (x is not None and y is not None):
+		if x is None or y is None:
+			x,y,_ = self.window.get_pointer()
+		if not self._boxes_under_cursor or not self._changed_rect:
 			# It doesn't matter if these are way off: if the mouse is outside 
 			# the cache box, it'll be recalculated.
-			if x is None or y is None:
-				x,y,_ = self.window.get_pointer()
 			x,y = self.widget2imgcoords(x,y)
 			self._update_boxes(x,y)
 		return self._boxes_under_cursor[:]
@@ -592,19 +585,23 @@ class ImageSpace(gtk.Widget):
 		if __debug__: 
 			sys.stdout.write(repr((x,y))+' '+repr(icoords)+'\r')
 			sys.stdout.flush()
+		# Update the box cache
 		if self._update_boxes(*icoords):
-			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor))
+			# Cache changed, update tooltips
+			self.set_tooltip_text(self.get_tooltip_text(self._boxes_under_cursor)) #XXX: Why is this needed to get the tooltip to query?
 			self.trigger_tooltip_query()
 		
 		if self.mode == self.INSERT and self._insert_start_coords is not None and state & gtk.gdk.BUTTON1_MASK:
-			# Adjust temporary box
+			# Adjust temporary box (for use in insertion)
 			nr = pt2rect(icoords, self._insert_start_coords)
 			redraw = nr.union(self._temporary_box.rect)
 			self._temporary_box.rect = nr
 			#self.queue_draw_area(*self.rect2widget(redraw))
 			self.queue_draw() #REDRAW: If we implement partial redraw, fix this
+			#XXX: Should we draw immediately instead of queueing one?
 			self.emit('insert-box-changed', self._temporary_box)
 		elif self._box_is_resizing is not None and state & gtk.gdk.BUTTON1_MASK:
+			# Update the size of the box we're resizing
 			d = self._box_is_resizing_dir
 			b = self._box_is_resizing
 			r = frect(*b.rect)
@@ -621,11 +618,13 @@ class ImageSpace(gtk.Widget):
 				r.height = (iy - r.y)
 			b.rect = r
 #			if __debug__: print "Resizing: %r (%r,%r) (%r,%r) %r->%r" % (d, x,y, ix,iy, list(obox), list(b.rect))
-			#self.queue_draw_area(*self.rect2widget(union(obox, b.rect)))
+			#self.queue_draw_area(*self.rect2widget(obox.union(b.rect)))
 			self.queue_draw() #REDRAW: If we implement partial redraw, fix this
+			#XXX: Should we draw immediately instead of queueing one?
 		elif not state & (gtk.gdk.BUTTON1_MASK | gtk.gdk.BUTTON2_MASK | 
 				gtk.gdk.BUTTON3_MASK | gtk.gdk.BUTTON4_MASK | 
 				gtk.gdk.BUTTON5_MASK): # Hover
+			# Update the current cursor icon
 			boxes = tuple(self.find_boxes_coord_near(*icoords)) #FIXME: Use cache
 			if len(boxes):
 				#if __debug__: print "Nearby Boxes: %r" % (boxes,)
@@ -653,7 +652,7 @@ class ImageSpace(gtk.Widget):
 				self.emit('insert-box-changed', self._temporary_box)
 			elif self.mode == self.SELECT:
 				# Change selection
-				# TODO: Rubber banding
+				# TODO: Rubber band selection
 				if self.selection is None: return True
 				boxes = self.get_boxes_under_cursor(event.x, event.y)
 				rows = []
@@ -683,7 +682,7 @@ class ImageSpace(gtk.Widget):
 				self._changed_rect = None
 			elif self.mode == self.SELECT:
 				# Change selection
-				# TODO: Rubber banding
+				# TODO: Rubber band selection
 				if self.selection is None: return True
 				rows = []
 				boxes = self.get_boxes_under_cursor(event.x, event.y)
@@ -720,12 +719,9 @@ class ImageSpace(gtk.Widget):
 			return None
 		return '\n'.join(b.dimensions_text() for b in boxes)
 	
-	def do_query_tooltip(self, x,y, keyboard_mode, tooltip, _=None):
-		# If widget wasn't passed as self
-		if _ is not None: x,y, keyboard_mode, tooltip = y, keyboard_mode, tooltip, _
+	def do_query_tooltip(self, x,y, keyboard_mode, tooltip):
 		if __debug__: print 'do_query_tooltip',self, x,y, keyboard_mode, tooltip
-		ix,iy = self.widget2imgcoords(x,y)
-		boxes = self.find_boxes_under_coord(ix,iy)
+		boxes = self.get_boxes_under_cursor(x,y)
 		if len(boxes) == 0:
 			return False
 		tooltip.set_text(self.get_tooltip_text(boxes))
@@ -806,6 +802,7 @@ class ImageSpace(gtk.Widget):
 	def do_set_scroll_adjustments(self, hadj, vadj):
 		if __debug__: print "do_set_scroll_adjustments", hadj, vadj
 		# Blatently ripped from http://git.gnome.org/browse/pygtk/tree/examples/gtk/scrollable.py
+		#XXX: Rewrite this so that we use None instead of dummy adjustments?
 		if not hadj and self._hadj:
 			hadj = new_adj()
 		
