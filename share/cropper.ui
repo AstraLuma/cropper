@@ -4,159 +4,26 @@
   <!-- interface-naming-policy toplevel-contextual -->
   <object class="GtkActionGroup" id="agCropper">
     <child>
-      <object class="GtkRadioAction" id="raSelect">
-        <property name="label">Select</property>
-        <property name="stock_id">drag-resize</property>
-        <property name="draw_as_radio">True</property>
-        <property name="value">1</property>
-        <property name="group">raAdd</property>
-        <signal name="changed" handler="Select" swapped="no"/>
+      <object class="GtkAction" id="aAbout">
+        <property name="label">About</property>
+        <property name="stock_id">gtk-about</property>
+        <signal name="activate" handler="About" swapped="no"/>
       </object>
     </child>
     <child>
-      <object class="GtkRadioAction" id="raAdd">
-        <property name="label">Add</property>
-        <property name="stock_id">gtk-add</property>
-        <property name="draw_as_radio">True</property>
-        <signal name="changed" handler="Add" swapped="no"/>
-      </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="aZoomOut">
-        <property name="label">Zoom Out</property>
-        <property name="stock_id">gtk-zoom-out</property>
-        <signal name="activate" handler="ZoomOut" swapped="no"/>
-      </object>
-      <accelerator key="minus" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aZoomIn">
-        <property name="label">Zoom In</property>
-        <property name="stock_id">gtk-zoom-in</property>
-        <signal name="activate" handler="ZoomIn" swapped="no"/>
-      </object>
-      <accelerator key="plus" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aZoomFit">
-        <property name="label">Best Fit</property>
-        <property name="stock_id">gtk-zoom-fit</property>
-        <signal name="activate" handler="ZoomFit" swapped="no"/>
-      </object>
-      <accelerator key="f"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aZoom100">
-        <property name="label">Normal Size</property>
-        <property name="stock_id">gtk-zoom-100</property>
-        <signal name="activate" handler="ZoomNormal" swapped="no"/>
-      </object>
-      <accelerator key="0" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aSelectAll">
-        <property name="label">Select All</property>
-        <property name="stock_id">gtk-select-all</property>
-        <signal name="activate" handler="SelectAll" swapped="no"/>
-      </object>
-      <accelerator key="a" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aRotateCW">
-        <property name="label">Rotate Clockwise</property>
-        <property name="icon_name">object-rotate-right</property>
+      <object class="GtkAction" id="aAutoShrink">
+        <property name="label">Auto Shrink</property>
         <property name="sensitive">False</property>
         <property name="visible">False</property>
-        <signal name="activate" handler="RotateCW" swapped="no"/>
+        <signal name="activate" handler="AutoShrink" swapped="no"/>
       </object>
     </child>
     <child>
-      <object class="GtkAction" id="aRotateCCW">
-        <property name="label">Rotate Counterclockwise</property>
-        <property name="icon_name">object-rotate-left</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="RotateCCW" swapped="no"/>
+      <object class="GtkAction" id="aClear">
+        <property name="label">Clear</property>
+        <property name="stock_id">gtk-clear</property>
+        <signal name="activate" handler="Clear" swapped="no"/>
       </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="aQuit">
-        <property name="label">Quit</property>
-        <property name="stock_id">gtk-quit</property>
-        <signal name="activate" handler="Quit" swapped="no"/>
-      </object>
-      <accelerator key="q" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aPaste">
-        <property name="label">Paste</property>
-        <property name="stock_id">gtk-paste</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="Paste" swapped="no"/>
-      </object>
-      <accelerator key="v" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aOpen">
-        <property name="label">Open</property>
-        <property name="short_label">Open</property>
-        <property name="stock_id">gtk-open</property>
-        <signal name="activate" handler="Open" swapped="no"/>
-      </object>
-      <accelerator key="o" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aFlipVertical">
-        <property name="label">Flip Vertical</property>
-        <property name="icon_name">object-flip-vertical</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="FlipVertical" swapped="no"/>
-      </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="aFlipHorizontal">
-        <property name="label">Flip Horizontal</property>
-        <property name="icon_name">object-flip-horizontal</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="FlipHorizontal" swapped="no"/>
-      </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="aEditPreferences">
-        <property name="label">Edit Preferences</property>
-        <property name="stock_id">gtk-preferences</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="EditPreferences" swapped="no"/>
-      </object>
-    </child>
-    <child>
-      <object class="GtkAction" id="aDelete">
-        <property name="label">Delete</property>
-        <property name="stock_id">gtk-delete</property>
-        <signal name="activate" handler="Delete" swapped="no"/>
-      </object>
-      <accelerator key="Delete"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aCut">
-        <property name="stock_id">gtk-cut</property>
-        <property name="sensitive">False</property>
-        <property name="visible">False</property>
-        <signal name="activate" handler="Cut" swapped="no"/>
-      </object>
-      <accelerator key="x" modifiers="GDK_CONTROL_MASK"/>
-    </child>
-    <child>
-      <object class="GtkAction" id="aCrop">
-        <property name="label">Crop</property>
-        <property name="stock_id">gtk-save</property>
-        <signal name="activate" handler="Crop" swapped="no"/>
-      </object>
-      <accelerator key="s" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
       <object class="GtkAction" id="aCopy">
@@ -169,25 +36,158 @@
       <accelerator key="c" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
-      <object class="GtkAction" id="aClear">
-        <property name="label">Clear</property>
-        <property name="stock_id">gtk-clear</property>
-        <signal name="activate" handler="Clear" swapped="no"/>
+      <object class="GtkAction" id="aCrop">
+        <property name="label">Crop</property>
+        <property name="stock_id">gtk-save</property>
+        <signal name="activate" handler="Crop" swapped="no"/>
       </object>
+      <accelerator key="s" modifiers="GDK_CONTROL_MASK"/>
     </child>
     <child>
-      <object class="GtkAction" id="aAutoShrink">
-        <property name="label">Auto Shrink</property>
+      <object class="GtkAction" id="aCut">
+        <property name="stock_id">gtk-cut</property>
         <property name="sensitive">False</property>
         <property name="visible">False</property>
-        <signal name="activate" handler="AutoShrink" swapped="no"/>
+        <signal name="activate" handler="Cut" swapped="no"/>
+      </object>
+      <accelerator key="x" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aDelete">
+        <property name="label">Delete</property>
+        <property name="stock_id">gtk-delete</property>
+        <signal name="activate" handler="Delete" swapped="no"/>
+      </object>
+      <accelerator key="Delete"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aEditPreferences">
+        <property name="label">Edit Preferences</property>
+        <property name="stock_id">gtk-preferences</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="EditPreferences" swapped="no"/>
       </object>
     </child>
     <child>
-      <object class="GtkAction" id="aAbout">
-        <property name="label">About</property>
-        <property name="stock_id">gtk-about</property>
-        <signal name="activate" handler="About" swapped="no"/>
+      <object class="GtkAction" id="aFlipHorizontal">
+        <property name="label">Flip Horizontal</property>
+        <property name="icon_name">object-flip-horizontal</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="FlipHorizontal" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="aFlipVertical">
+        <property name="label">Flip Vertical</property>
+        <property name="icon_name">object-flip-vertical</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="FlipVertical" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="aOpen">
+        <property name="label">Open</property>
+        <property name="short_label">Open</property>
+        <property name="stock_id">gtk-open</property>
+        <signal name="activate" handler="Open" swapped="no"/>
+      </object>
+      <accelerator key="o" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aPaste">
+        <property name="label">Paste</property>
+        <property name="stock_id">gtk-paste</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="Paste" swapped="no"/>
+      </object>
+      <accelerator key="v" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aQuit">
+        <property name="label">Quit</property>
+        <property name="stock_id">gtk-quit</property>
+        <signal name="activate" handler="Quit" swapped="no"/>
+      </object>
+      <accelerator key="q" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aRotateCCW">
+        <property name="label">Rotate Counterclockwise</property>
+        <property name="icon_name">object-rotate-left</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="RotateCCW" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="aRotateCW">
+        <property name="label">Rotate Clockwise</property>
+        <property name="icon_name">object-rotate-right</property>
+        <property name="sensitive">False</property>
+        <property name="visible">False</property>
+        <signal name="activate" handler="RotateCW" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkAction" id="aSelectAll">
+        <property name="label">Select All</property>
+        <property name="stock_id">gtk-select-all</property>
+        <signal name="activate" handler="SelectAll" swapped="no"/>
+      </object>
+      <accelerator key="a" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aZoom100">
+        <property name="label">Normal Size</property>
+        <property name="stock_id">gtk-zoom-100</property>
+        <signal name="activate" handler="ZoomNormal" swapped="no"/>
+      </object>
+      <accelerator key="0" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aZoomFit">
+        <property name="label">Best Fit</property>
+        <property name="stock_id">gtk-zoom-fit</property>
+        <signal name="activate" handler="ZoomFit" swapped="no"/>
+      </object>
+      <accelerator key="f"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aZoomIn">
+        <property name="label">Zoom In</property>
+        <property name="stock_id">gtk-zoom-in</property>
+        <signal name="activate" handler="ZoomIn" swapped="no"/>
+      </object>
+      <accelerator key="plus" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkAction" id="aZoomOut">
+        <property name="label">Zoom Out</property>
+        <property name="stock_id">gtk-zoom-out</property>
+        <signal name="activate" handler="ZoomOut" swapped="no"/>
+      </object>
+      <accelerator key="minus" modifiers="GDK_CONTROL_MASK"/>
+    </child>
+    <child>
+      <object class="GtkRadioAction" id="raAdd">
+        <property name="label">Add</property>
+        <property name="stock_id">gtk-add</property>
+        <property name="draw_as_radio">True</property>
+        <signal name="changed" handler="Add" swapped="no"/>
+      </object>
+    </child>
+    <child>
+      <object class="GtkRadioAction" id="raSelect">
+        <property name="label">Select</property>
+        <property name="stock_id">drag-resize</property>
+        <property name="draw_as_radio">True</property>
+        <property name="value">1</property>
+        <property name="group">raAdd</property>
+        <signal name="changed" handler="Select" swapped="no"/>
       </object>
     </child>
   </object>
@@ -605,6 +605,8 @@
                     <property name="preview_widget_active">False</property>
                     <property name="use_preview_label">False</property>
                     <property name="title" translatable="yes">Select Destination Directory</property>
+                    <signal name="selection-changed" handler="on_cropdir_set" swapped="no"/>
+                    <signal name="file-set" handler="on_cropdir_set" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>

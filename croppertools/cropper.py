@@ -182,8 +182,10 @@ class Cropper(BuilderWindow):
 		self.Open(file=gio.File(uri=uri))
 		context.finish(True, False, time)
 	
-	def on_fcbCropDir_file_set(self, widget):
-		self.crop_dir = self.fcbCropDir.get_file()
+	def on_cropdir_set(self, widget):
+		if __debug__: 
+			print "on_fcbCropDir_file_set", widget, self.fcbCropDir.get_file()
+#		self.crop_dir = self.fcbCropDir.get_file()
 	
 	def on_cell_edited(self, cell, path, new_text, model):
 		i = model.get_iter(path)
