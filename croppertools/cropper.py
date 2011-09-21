@@ -184,8 +184,8 @@ class Cropper(BuilderWindow):
 	
 	def on_cropdir_set(self, widget):
 		if __debug__: 
-			print "on_fcbCropDir_file_set", widget, self.fcbCropDir.get_file()
-#		self.crop_dir = self.fcbCropDir.get_file()
+			print "on_cropdir_set", widget, self.fcbCropDir.get_file()
+		self.crop_dir = self.fcbCropDir.get_file()
 	
 	def on_cell_edited(self, cell, path, new_text, model):
 		i = model.get_iter(path)
@@ -320,11 +320,12 @@ class Cropper(BuilderWindow):
 		origin = PIL.Image.open(StringIO(self.imagedata))
 		
 		for fn, box in ((r[0],r[1]) for r in self.model):
-			print "fn:", fn
+			print "fn:", fn,
 			r = box.rect
 			img = origin.crop((r.x, r.y, r.x+r.width, r.y+r.height))
 			
 			dest = self.crop_dir.get_child(fn)
+			print self.crop_dir, dest
 			ext = os.path.splitext(dest.get_basename())[1].lower()
 			img.save(dest.replace('', False), PIL.Image.EXTENSION.get(ext, origin.format))
 		# Update the model

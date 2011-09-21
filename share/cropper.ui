@@ -607,6 +607,7 @@
                     <property name="title" translatable="yes">Select Destination Directory</property>
                     <signal name="selection-changed" handler="on_cropdir_set" swapped="no"/>
                     <signal name="file-set" handler="on_cropdir_set" swapped="no"/>
+                    <signal name="current-folder-changed" handler="on_cropdir_set" swapped="no"/>
                   </object>
                   <packing>
                     <property name="expand">False</property>
