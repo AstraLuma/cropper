@@ -1,82 +1,132 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset='utf-8'>
+	<meta charset='utf-8'>
 
-  <title>astronouth7303/cropper @ GitHub</title>
+	<title>Cropper</title>
 
-  <style type="text/css">
-    body {
-      margin-top: 1.0em;
-      background-color: #FA0;
-      font-family: Helvetica, Arial, FreeSans, san-serif;
-      color: #000000;
-    }
-    #container {
-      margin: 0 auto;
-      width: 700px;
-    }
-    h1 { font-size: 3.8em; color: #5A2; margin-bottom: 3px; }
-    h1 .small { font-size: 0.4em; }
-    h1 a { text-decoration: none }
-    h2 { font-size: 1.5em; color: #5A2; }
-    h3 { text-align: center; color: #5A2; }
-    a { color: #5A2; }
-    .description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
-    .download { float: right; }
-    pre { background: #000; color: #fff; padding: 15px;}
-    hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
-    .footer { text-align:center; padding-top:30px; font-style: italic; }
-  </style>
+	<style type="text/css">
+		body {
+			margin-top: 1.0em;
+			background-color: transparent;
+			font-family: Helvetica, Arial, FreeSans, san-serif;
+			color: #000000;
+		}
+		#container {
+			margin: 0 auto;
+			width: 700px;
+		}
+		
+		#logo {
+			float: left;
+			margin-left: -160px;
+			margin-top: -20px;
+		}
+		
+		h1 { 
+			font-size: 3.8em; 
+			color: #5A2; 
+			margin-bottom: 3px;
+		}
+		h1 .small { font-size: 0.4em; }
+		h1 a { text-decoration: none; }
+		h1 > span > a { font-family: serif; }
+		h2 { font-size: 1.5em; color: #5A2; }
+		h3 { text-align: center; color: #5A2; }
+		a { color: #5A2; }
+		.description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
+		.download { float: right; }
+		pre { background: #000; color: #fff; padding: 15px;}
+		hr { border: 0; width: 80%; border-bottom: 1px solid #aaa}
+		.footer { text-align:center; padding-top:30px; font-style: italic; }
+		
+		.box-0AF, .box-0FA, .box-A0F, .box-AF0, .box-F0A, .box-FA0 {
+			border: solid 2px #FFF;
+			padding: 0.2em;
+		}
+		.box-0AF { border-color: #0AF; background: url('bg/0AF.png'); }
+		.box-0FA { border-color: #0FA; background: url('bg/0FA.png'); }
+		.box-A0F { border-color: #A0F; background: url('bg/A0F.png'); }
+		.box-AF0 { border-color: #AF0; background: url('bg/AF0.png'); }
+		.box-F0A { border-color: #F0A; background: url('bg/F0A.png'); }
+		.box-FA0 { border-color: #FA0; background: url('bg/FA0.png'); }
+		
+		.screenshot {
+			display: block;
+			margin-left: auto;
+			margin-right: auto;
+			text-align: center;
+		}
+		
+		#screenshot {
+			cursor: pointer;
+		}
+	</style>
+	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
+	<script>
+	$(function() {
+		$('#screenshot').click(function() {
+			var e = $('#screenshot');
+			if (e.width() < 400) {
+				e.animate({width:'973px'});
+			} else {
+				e.animate({width:'200px'});
+			}
+		});
+	});
+	</script>
 </head>
 
 <body>
-  <a href="http://github.com/astronouth7303/cropper"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+	<a href="http://github.com/astronouth7303/cropper"><img style="position: absolute; top: 0; right: 0; border: 0;" src="http://s3.amazonaws.com/github/ribbons/forkme_right_darkblue_121621.png" alt="Fork me on GitHub" /></a>
+	
+	<div id="container">
+	
+	<div id="logo"><img src="logo.svg" width=140></div>
+	
+	<div class="download box-F0A">
+		<a href="http://github.com/astronouth7303/cropper/zipball/master">
+			<img border="0" width="90" src="http://github.com/images/modules/download/zip.png">
+		</a>
+		<a href="http://github.com/astronouth7303/cropper/tarball/master">
+			<img border="0" width="90" src="http://github.com/images/modules/download/tar.png">
+		</a>
+	</div>
 
-  <div id="container">
+	<h1><span class="box-0AF">
+		<a href="http://github.com/astronouth7303/cropper">Cropper</a>
+		<span class="small">by <a href="http://github.com/astronouth7303">astronouth7303</a></span>
+	</span></h1>
 
-    <div class="download">
-      <a href="http://github.com/astronouth7303/cropper/zipball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/zip.png"></a>
-      <a href="http://github.com/astronouth7303/cropper/tarball/master">
-        <img border="0" width="90" src="http://github.com/images/modules/download/tar.png"></a>
-    </div>
+	<div class="description">A simple application to crop images into multiple pieces.</div>
 
-    <h1><a href="http://github.com/astronouth7303/cropper">cropper</a>
-      <span class="small">by <a href="http://github.com/astronouth7303">astronouth7303</a></span></h1>
+	<p>Cropper is a simple utility to crop images into several photos. It sports 
+	a simple point-and-click interface with just enough features to make it 
+	easy.</p>
+	<img class="screenshot" id="screenshot" src="screenshot.png" width="200" title="Click for larger image">
+	
+	<h2><span class="box-FA0">Install</span></h2>
+	<p>Download, run setup.py</p>
+	
+	<h2><span class="box-AF0">Dependencies</span></h2>
+	<p>Python, GTK, PyGTK, Python Imaging Library</p>
+	
+	<h2><span class="box-A0F">Download</span></h2>
+	<p>
+	  You can download this project in either
+	  <a href="http://github.com/astronouth7303/cropper/zipball/master">zip</a> or
+	  <a href="http://github.com/astronouth7303/cropper/tarball/master">tar</a> formats.
+	</p>
+	<p>You can also clone the project with <a href="http://git-scm.com">Git</a>
+	  by running:
+	  <pre>$ git clone git://github.com/astronouth7303/cropper</pre>
+	</p>
 
-    <div class="description">
-      A simple application to crop images into multiple pieces.
-    </div>
+	<div class="footer"><span class="box-0FA">
+	  get the source code on GitHub : <a href="http://github.com/astronouth7303/cropper">astronouth7303/cropper</a>
+	</div>
 
-    <p>Cropper is a simple utility to chop up an image into several pieces. It supports a variety of formats.</p><h2>Dependencies</h2>
-<p>Python, GTK, PyGTK, Python Imaging Library</p>
-<h2>Install</h2>
-<p>Download, run setup.py</p>
-<h2>License</h2>
-<p>GNU GPL</p>
-<h2>Authors</h2>
-<p>James Bliss (james.bliss@astro73.com)</p>
-<h2>Contact</h2>
-<p>James Bliss (james.bliss@astro73.com)</p>
-
-
-    <h2>Download</h2>
-    <p>
-      You can download this project in either
-      <a href="http://github.com/astronouth7303/cropper/zipball/master">zip</a> or
-      <a href="http://github.com/astronouth7303/cropper/tarball/master">tar</a> formats.
-    </p>
-    <p>You can also clone the project with <a href="http://git-scm.com">Git</a>
-      by running:
-      <pre>$ git clone git://github.com/astronouth7303/cropper</pre>
-    </p>
-
-    <div class="footer">
-      get the source code on GitHub : <a href="http://github.com/astronouth7303/cropper">astronouth7303/cropper</a>
-    </div>
-
-  </div>
+	</div>
 
   <script type="text/javascript">
 var gaJsHost = (("https:" == document.location.protocol) ? "https://ssl." : "http://www.");
