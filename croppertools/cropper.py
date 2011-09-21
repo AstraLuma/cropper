@@ -20,7 +20,7 @@ from .box import Box
 from .boxmodel import BoxListStore, make_absolute
 from .imagespace import ImageSpace
 
-__version__ = '0.1'
+__version__ = 'dev'
 
 BUFSIZE = 8*1024 #8K # Amount to read in one go
 
