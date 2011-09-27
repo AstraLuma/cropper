@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <interface>
   <requires lib="gtk+" version="2.24"/>
-  <!-- interface-naming-policy toplevel-contextual -->
+  <!-- interface-naming-policy project-wide -->
   <object class="GtkActionGroup" id="agCropper">
     <child>
       <object class="GtkAction" id="aAbout">
@@ -193,15 +193,16 @@
   </object>
   <object class="GtkIconFactory" id="ifCropper">
     <sources>
+      <source stock-id="cropper" filename="logo.svg"/>
       <source stock-id="drag-resize" filename="drag-resize.png"/>
     </sources>
   </object>
   <object class="GtkTreeSelection" id="tsBoxSelect"/>
   <object class="GtkWindow" id="wCropper">
     <property name="can_focus">False</property>
-    <property name="title" translatable="yes">cropper</property>
+    <property name="title" translatable="yes">Cropper</property>
     <property name="window_position">center</property>
-    <property name="icon_name">editcut</property>
+    <property name="icon">logo.svg</property>
     <signal name="delete-event" handler="on_delete_event" swapped="no"/>
     <child>
       <object class="GtkVBox" id="vbContent">

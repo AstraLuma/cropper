@@ -65,6 +65,9 @@ class Cropper(BuilderWindow):
 	def __init__(self, options, args, *pargs, **kwargs):
 		if __debug__: print 'Cropper.__init__()'
 		
+		#FIXME: Do this in the XML, from the factory
+		self.wCropper.set_icon_from_file(resource('share/logo.svg'))
+		
 		self.crop_dir = find_pictures_dir()
 		self.fcbCropDir.set_current_folder_file(self.crop_dir)
 		self.crop_pattern = '%i'
@@ -397,11 +400,14 @@ class Cropper(BuilderWindow):
 		props = {
 			'version': __version__,
 			'name': 'cropper',
-			'logo-icon-name': self.wCropper.get_property('icon-name'),
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
 			'copyright': u'\N{COPYRIGHT SIGN} 2011 James Bliss',
-			'website': 'https://github.com/astronouth7303/cropper'
+			'website': 'https://astronouth7303.github.com/cropper'
 			}
+		if self.wCropper.get_property('icon-name'):
+			props['logo-icon-name'] = self.wCropper.get_property('icon-name')
+		elif self.wCropper.get_property('icon'):
+			props['logo'] = self.wCropper.get_property('icon')
 		for k,v in props.iteritems():
 			dlg.set_property(k,v)
 		dlg.run()
