@@ -195,27 +195,6 @@ class Cropper(BuilderWindow):
 		#FIXME: On windows, add extension if it's not there.
 		model.set_value(i, 0, new_text)
 	
-# Not even sure what this does, and doesn't seem to have any effect. Diking it out.
-	# Actions/UI stuff
-#	PROPS = 'expand', 'fill', 'padding', 'pack-type', 'position'
-#	def add_menubar(self, menubar):
-#		props = self.vbContent.child_get(self.mbMenu, *self.PROPS)
-#		self.vbContent.remove(self.mbMenu)
-#		self.mbMenu = menubar
-#		params = []
-#		for k,v in zip(self.PROPS, props):
-#			params += [k,v]
-#		self.vbContent.add_with_properties(self.mbMenu, *params)
-#	
-#	def add_toolbar(self, toolbar):
-#		props = self.vbContent.child_get(self.tbTools, *self.PROPS)
-#		self.vbContent.remove(self.tbTools)
-#		self.tbTools = toolbar
-#		params = []
-#		for k,v in zip(self.PROPS, props):
-#			params += [k,v]
-#		self.vbContent.add_with_properties(self.tbTools, *params)
-
 #########
 # ACTIONS
 #########
@@ -249,7 +228,6 @@ class Cropper(BuilderWindow):
 		
 		# Open image
 		self.model.clear()
-		#self.isImage.image = gtk.gdk.pixbuf_new_from_file(filename)
 		#Use gtk.gdk.PixbufLoader
 		# open the file
 		pbl = gtk.gdk.PixbufLoader()

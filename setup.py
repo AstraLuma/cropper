@@ -14,7 +14,14 @@ setup(
 	packages=['croppertools'],
 	requires=['pygtk', 'PIL'],
 	scripts=['cropper'],
-	data_files=[('share/cropper', ['share/cropper.ui', 'share/drag-resize.png'])],
+	data_files=[
+		('share/cropper', [
+			'share/cropper.ui', 
+			'share/drag-resize.png', 
+			'share/logo.svg',
+			]
+		),
+	],
 	download_url='https://github.com/astronouth7303/cropper/tarball/v'+croppertools.cropper.__version__,
 	classifiers=[
 		'Development Status :: 3 - Alpha',
