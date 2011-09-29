@@ -1,7 +1,19 @@
 #!/usr/bin/env python
 
+import sys
 from distutils.core import setup
 import croppertools.cropper
+
+# Application registration
+if sys.platform == 'linux2':
+	morefiles = [
+		('/usr/share/applications', [
+			'share/cropper.desktop', 
+			]
+		),
+		]
+else:
+	morefiles = []
 
 setup(
 	name='cropper',
@@ -21,7 +33,7 @@ setup(
 			'share/logo.svg',
 			]
 		),
-	],
+	]+morefiles,
 	download_url='https://github.com/astronouth7303/cropper/tarball/v'+croppertools.cropper.__version__,
 	classifiers=[
 		'Development Status :: 3 - Alpha',
