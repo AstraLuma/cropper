@@ -66,7 +66,7 @@ class Cropper(BuilderWindow):
 		if __debug__: print 'Cropper.__init__()'
 		
 		#FIXME: Do this in the XML, from the factory
-		self.wCropper.set_icon_from_file(resource('share/logo.svg'))
+		self.wCropper.set_icon_from_file(resource('logo.svg'))
 		
 		self.crop_dir = find_pictures_dir()
 		self.fcbCropDir.set_current_folder_file(self.crop_dir)
