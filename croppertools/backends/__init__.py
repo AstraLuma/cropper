@@ -1,5 +1,7 @@
-import jpegtrans, magickwand, imagemagick, pil, gtkpixbuf
+import gobject
+from .usefulgprop import property as gprop
 
+import jpegtrans, magickwand, imagemagick, pil, gtkpixbuf
 MODULES = [jpegtrans, magickwand, imagemagick, pil, gtkpixbuf]
 
 class CropManager(object):
@@ -19,9 +21,94 @@ class CropManager(object):
 		"""
 	
 	def do_crop(self, rect, dest):
-		"""m.do_crop(gtk.gdk.Rect, gio.File) -> (TODO: Some kind of object to notify of progress)
+		"""m.do_crop(gtk.gdk.Rect, gio.File) -> ProgressTracker
 		Start performing the crop. The hard work should be done in a back end.
 		
 		Returns an object that's used for syncronization.
 		"""
-		dest.replace('', False).write('')
+	
+	def __enter__(self): return self
+	
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		"""
+		We're done with this cropping business. Clean up.
+		"""
+
+class ProgressTracker(gobject.GObject):
+	"""
+	Helps syncronize the backends and the UI.
+	"""
+	__gsignals__ = {
+		'finished': (gobject.SIGNAL_RUN_FIRST, None, ()),
+		'error': (gobject.SIGNAL_RUN_FIRST, None, (type, Exception, object)), #exc_type, exc_val, exc_tb
+		}
+	value = gprop(
+		type=gobject.TYPE_DOUBLE,
+		nick='percent finished',
+		blurb='how done this task is, as a fraction (0 is nothing done, 1 is completely done)',
+		minimum=0.0,
+		maximum=1.0,
+		default=0.0,
+		flags=gobject.PARAM_READWRITE
+		)
+	has_value = gprop(
+		type=gobject.TYPE_BOOLEAN,
+		nick='barber pole',
+		blurb='Do we have a value at all? If this is false, a ProgressBar should be set to barber pole mode.',
+		default=False,
+		flags=gobject.PARAM_READWRITE
+		)
+	
+	_finished = None
+	_err = None
+	_autofinish = True
+	
+	def __init__(self, autofinish=True):
+		self._autofinish = autofinish
+	
+	def finish(self):
+		if self._err is not None:
+			raise RuntimeError("Can call only finish() or error(), never both!")
+		self._finished = True
+		self.emit('finished')
+	
+	def error(self, exc_type, exc_val, exc_tb):
+		if self._finished is not None:
+			raise RuntimeError("Can call only finish() or error(), never both!")
+		self._err = exc_type, exc_val, exc_tb
+		self.emit('error', exc_type, exc_val, exc_tb)
+	
+	def connect(self, signal, handler):
+		if signal == 'finished' and self._finished is not None: handler(self)
+		elif signal == 'error' and self._err is not None: handler(self, *self._err)
+		super(ProgressTracker, self).connect(signal, handler)
+	
+	def connect_after(self, signal, handler)
+		if signal == 'finished' and self._finished is not None: handler(self)
+		elif signal == 'error' and self._err is not None: handler(self, *self._err)
+		super(ProgressTracker, self).connect_after(signal, handler)
+	
+	def connect_object(self, signal, handler, gobj)
+		if signal == 'finished' and self._finished is not None: handler(gobj)
+		elif signal == 'error' and self._err is not None: handler(gobj, *self._err)
+		super(ProgressTracker, self).connect_object(signal, handler, gobj)
+		
+	def connect_object_after(self, signal, handler, gobj)
+		if signal == 'finished' and self._finished is not None: handler(gobj)
+		elif signal == 'error' and self._err is not None: handler(gobj, *self._err)
+		super(ProgressTracker, self).connect_object_after(signal, handler, gobj)
+	
+	def __enter__(self): return self
+	
+	def __exit__(self, exc_type, exc_val, exc_tb):
+		"""
+		Shortcut to handle setting up the props and to call things.
+		
+		NOTE: This swallows errors! Be careful when mixing with and try.
+		"""
+		if exc_type is None:
+			if self._autofinish: self.finish()
+		else:
+			self.emit('error', exc_type, exc_val, exc_tb)
+		return True
+

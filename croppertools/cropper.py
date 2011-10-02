@@ -297,13 +297,13 @@ class Cropper(BuilderWindow):
 			dlg.destroy()
 		
 		#TODO: Check for conflicts, and ask user (make use of gio etags?)
-		cm = CropManager(None, self.image, self.imagedata)
-		for r in self.model:
-			fn, box = r[0],r[1]
-			dest = self.crop_dir.get_child(fn)
-			print self.crop_dir, dest
-			sync = cm.do_crop(box.rect, fn)
-			sync.connect('done', self.crop_done, row)
+		with CropManager(None, self.image, self.imagedata) as cm:
+			for r in self.model:
+				fn, box = r[0],r[1]
+				dest = self.crop_dir.get_child(fn)
+				print self.crop_dir, dest
+				sync = cm.do_crop(box.rect, fn)
+				sync.connect('done', self.crop_done, row)
 	
 	def crop_done(self, row):
 		self.model.row_changed(row)
