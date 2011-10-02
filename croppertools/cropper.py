@@ -19,6 +19,7 @@ from .gbuilder import BuilderWindow, resource
 from .box import Box
 from .boxmodel import BoxListStore, make_absolute
 from .imagespace import ImageSpace
+from .backends import CropManager
 
 __version__ = 'dev'
 
@@ -295,23 +296,18 @@ class Cropper(BuilderWindow):
 			filename = dlg.get_file()
 			dlg.destroy()
 		
-		#TODO: Make this async
 		#TODO: Check for conflicts, and ask user (make use of gio etags?)
-		
-		origin = PIL.Image.open(StringIO(self.imagedata))
-		
-		for fn, box in ((r[0],r[1]) for r in self.model):
-			print "fn:", fn,
-			r = box.rect
-			img = origin.crop((r.x, r.y, r.x+r.width, r.y+r.height))
-			
+		cm = CropManager(None, self.image, self.imagedata)
+		for r in self.model:
+			fn, box = r[0],r[1]
 			dest = self.crop_dir.get_child(fn)
 			print self.crop_dir, dest
-			ext = os.path.splitext(dest.get_basename())[1].lower()
-			img.save(dest.replace('', False), PIL.Image.EXTENSION.get(ext, origin.format))
-		# Update the model
-		self.model.foreach(BoxListStore.row_changed)
-
+			sync = cm.do_crop(box.rect, fn)
+			sync.connect('done', self.crop_done, row)
+	
+	def crop_done(self, row):
+		self.model.row_changed(row)
+	
 	def Quit(self, action):
 		self.wCropper.destroy()
 	
@@ -380,7 +376,7 @@ class Cropper(BuilderWindow):
 			'name': 'cropper',
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
 			'copyright': u'\N{COPYRIGHT SIGN} 2011 James Bliss',
-			'website': 'https://astronouth7303.github.com/cropper'
+			'website': 'https://astro73.com/cropper'
 			}
 		if self.wCropper.get_property('icon-name'):
 			props['logo-icon-name'] = self.wCropper.get_property('icon-name')
