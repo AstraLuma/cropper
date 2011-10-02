@@ -88,25 +88,13 @@ def resource(fn, sec="share", appname=None):
 	
 	appname defaults to the script name.
 	
-	The list of searched directories is as follows:
-	* <script dir>
-	* <sys.prefix>/<section>/<appname>
-	* /usr/local/<section>/<appname>
-	* /usr/<section>/<appname>
-	* /opt/<section>/<appname>
-	* /<section>/<appname>
-	* ~/.local/<section>/<appname>
-	* <script dir>/../<section>/<appname>
-	* <script dir>/<section>/<appname>
-	* ../<section>/<appname>
-	
 	When everything fails, just returns the passed-in file name (ie the current 
 	directory) and raises a warning.
 	
 	Some special sections:
 	* $var - Adds /var/lib to the mix (dollar sign stripped before using the 
 	  normal list)
-	* doc - Adss the whole list using share/doc as the section
+	* doc - Adds the whole list using share/doc as the section
 	
 	This function is geared towards files that are installed with the script, 
 	not files that are created by the app (eg in /var/run, /var/log, /tmp)

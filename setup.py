@@ -22,7 +22,7 @@ setup(
 	long_description=open('README.rst').read(),
 	author='James Bliss',
 	author_email='james.bliss@astro73.com',
-	url='https://astronouth7303.github.com/cropper',
+	url='https://astro73.com/cropper',
 	packages=['croppertools'],
 	requires=['pygtk', 'PIL'],
 	scripts=['cropper'],
