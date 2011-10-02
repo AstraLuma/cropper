@@ -49,5 +49,8 @@ class Module(object):
 	def __exit__(self, exc_type, exc_val, exc_tb):
 		"""
 		We're done with this cropping business. Clean up.
+		
+		This can also be used to run the crop if your library does it in one 
+		fel swoop instead of box-by-box.
 		"""
 

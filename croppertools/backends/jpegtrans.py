@@ -2,11 +2,12 @@
 # vim:tabstop=4:noexpandtab:
 """
 Implements loseless JPEG cropping in limited cases.
+
+Note: This is VERY limited. It's only along compressiong block borders (8x8 px).
 """
 from __future__ import division, absolute_import, with_statement
+from ..backends import ProgressTracker
 
 def module_available():
-	
+	return False
 
-if __name__ == '__main__':
-	pass
