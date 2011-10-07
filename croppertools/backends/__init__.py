@@ -103,6 +103,11 @@ class ProgressTracker(gobject.GObject):
 	_autofinish = True
 	
 	def __init__(self, autofinish=True):
+		"""ProgressTracker([bool])
+		By default, ProgressTracker will finish on __exit__(). If this is 
+		undesirable (because of callbacks and closures), set autofinish() to 
+		False.
+		"""
 		super(ProgressTracker, self).__init__()
 		self._autofinish = autofinish
 	
@@ -144,7 +149,8 @@ class ProgressTracker(gobject.GObject):
 		"""
 		Shortcut to handle setting up the props and to call things.
 		
-		NOTE: This swallows errors! Be careful when mixing with and try.
+		NOTE: This swallows errors so that they can be passed to the 
+		appropriate handler. Be careful when mixing try/except and with.
 		"""
 		if exc_type is None:
 			if self._autofinish: self.finish()

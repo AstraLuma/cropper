@@ -6,7 +6,7 @@ Dependencies:
    - Python
    - GTK
    - PyGTK, PyGlib, and PyCairo
-   - Python Imaging Library
+   - Python Imaging Library (Recommended)
 
 Under Ubunutu, all of these packages are installed by default.
 

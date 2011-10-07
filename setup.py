@@ -24,7 +24,7 @@ setup(
 	author_email='james.bliss@astro73.com',
 	url='https://astro73.com/cropper',
 	packages=['croppertools'],
-	requires=['pygtk', 'PIL'],
+	requires=['pygtk'],
 	scripts=['cropper'],
 	data_files=[
 		('share/cropper', [
