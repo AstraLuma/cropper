@@ -23,7 +23,7 @@ def decode(pbl):
 		pbl.write(imgdata)
 		imgdata = yield
 
-class Module(object):
+class CropManager(object):
 	"""
 	Manages the cropping process. One will be instantiated for each image to 
 	crop.

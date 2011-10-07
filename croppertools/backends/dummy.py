@@ -10,8 +10,8 @@ from ..backends import ProgressTracker
 
 def module_available():
 	"""module_available() -> boolean
-	Decodes an image. A coroutine, though.
-	Takes image data on send(). Exits when None is received.
+	Returns True if the utilities/libraries/oracle that this module uses is 
+	available. This is used as a fast filter.
 	"""
 	return True
 
@@ -24,14 +24,13 @@ def decode(pbl):
 		pbl.write(imgdata)
 		imgdata = yield
 
-class Module(object):
+class CropManager(object):
 	"""
 	Manages the cropping process. One will be instantiated for each image to 
 	crop.
 	
 	Implements the context manager interface so we know when we can free stuff up.
 	"""
-	
 	def __init__(self, gfile, pb, data):
 		"""Module(gio.File, gtk.gdk.PixBuf, blob)
 		Initializes the backend, including loading the file.

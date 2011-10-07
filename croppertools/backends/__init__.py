@@ -30,13 +30,25 @@ class CropManager(object):
 	Attempts to use the highest-quality backend first, and will move to lower 
 	ones if it's unavailable/unable.
 	"""
+	cm = None
+	#TODO: Silently move between modules as necessary
 	def __init__(self, gfile, pb, data):
 		"""Module(gio.File, gtk.gdk.PixBuf, blob)
 		Initializes the backend, including loading the file.
 		
-		Raises a NotImplementedException if this backend can't work on this 
+		Raises a NotImplementedError if this backend can't work on this 
 		kind of file.
 		"""
+		for m in MODULES:
+			if not hasattr(m, 'CropManager'): continue
+			try:
+				self.cm = m.CropManager(gfile, pb, data)
+			except NotImplementedError:
+				pass
+			else:
+				break
+		else:
+			raise NotImplementedError
 	
 	def do_crop(self, rect, dest):
 		"""m.do_crop(gtk.gdk.Rect, gio.File) -> ProgressTracker
@@ -44,6 +56,7 @@ class CropManager(object):
 		
 		Returns an object that's used for syncronization.
 		"""
+		return self.do_crop()
 	
 	def __enter__(self): return self
 	
@@ -51,6 +64,7 @@ class CropManager(object):
 		"""
 		We're done with this cropping business. Clean up.
 		"""
+		return self.cm.__exit__(exc_type, exc_val, exc_tb)
 
 #class ProgressTracker(gobject.GObject):
 class ProgressTracker(object):
