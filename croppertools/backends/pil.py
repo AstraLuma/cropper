@@ -28,10 +28,12 @@ def decode(pbl):
 	fullimg = ''
 	try:
 		parser = PIL.ImageFile.Parser()
-		fullimg += imgdata = yield 
+		imgdata = yield 
+		fullimg += imgdata
 		while True:
 			parser.feed(imgdata)
-			fullimg += imgdata = yield
+			imgdata = yield
+			fullimg += imgdata
 	except GeneratorExit:
 		img = parser.close()
 		
