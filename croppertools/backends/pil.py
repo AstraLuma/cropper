@@ -24,18 +24,25 @@ def decode(pbl):
 	Pretty much just passes the image data to the PixbufLoader.
 	"""
 	#FIXME: Fails with alpha channel
+	#KLUDGE: If this turns out to be an RGBA image, ignore the parse we just did.
+	fullimg = ''
 	try:
 		parser = PIL.ImageFile.Parser()
-		imgdata = yield 
+		fullimg += imgdata = yield 
 		while True:
 			parser.feed(imgdata)
-			imgdata = yield
+			fullimg += imgdata = yield
 	except GeneratorExit:
 		img = parser.close()
-		sio = StringIO()
-		img.save(sio, 'ppm')
-		pbl.write(sio.getvalue())
-		sio.close()
+		
+		#KLUDGE
+		if img.mode == 'RGBA':
+			pbl.write(fullimg) # Don't use our parser
+		else:
+			sio = StringIO()
+			img.save(sio, 'ppm')
+			pbl.write(sio.getvalue())
+			sio.close()
 
 class CropManager(object):
 	"""
