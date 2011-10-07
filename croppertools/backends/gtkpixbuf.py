@@ -46,26 +46,24 @@ class CropManager(object):
 		
 		Returns an object that's used for syncronization.
 		"""
-		with ProgressTracker(False) as rv:
-			img = self.origin.subpixbuf(rect.x, rect.y, rect.width, rect.height)
+		if __debug__: print "GTK: Do Crop", rect, dest
 		
+		with ProgressTracker() as rv:
+			img = self.origin.subpixbuf(rect.x, rect.y, rect.width, rect.height)
+			
 			ext = os.path.splitext(dest.get_basename())[1].lower()
 			if ext.lower() in ('jpg', 'jpeg') and not self.origin.get_property('has-alpha'):
 				typ = 'jpeg'
 			else:
 				typ = 'png'
-		
-			def write(buf):
-				with rv:
-					try:
-						dest.replace('', False).write(buf)
-					except:
-						raise
-					else:
-						rv.finish()
-		
-			img.save_to_callback(write, typ)
-		
+			
+			#TODO: Async
+			out = dest.replace('', False)
+			
+			if __debug__: print "GTK: Crop Format", typ
+			img.save_to_callback(out.write, typ)
+			
+			rv.finish()
 		return rv
 	
 	def __enter__(self): return self

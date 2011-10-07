@@ -302,16 +302,17 @@ class Cropper(BuilderWindow):
 			dlg.destroy()
 		
 		#TODO: Check for conflicts, and ask user (make use of gio etags?)
-		with CropManager(None, self.image, self.imagedata) as cm:
-			for r in self.model:
-				fn, box = r[0],r[1]
+		with CropManager(None, self.isImage.image, self.imagedata) as cm:
+			for idx, itr, row in [(idx, self.model.get_iter(idx), row) for idx, row in enumerate(self.model)]:
+				fn, box = row[0],row[1]
 				dest = self.crop_dir.get_child(fn)
 				print self.crop_dir, dest
-				sync = cm.do_crop(box.rect, fn)
-				sync.connect('done', self.crop_done, row)
+				sync = cm.do_crop(box.rect, dest)
+				sync.connect('finished', lambda sync: self.crop_done(idx, itr))
 	
-	def crop_done(self, row):
-		self.model.row_changed(row)
+	def crop_done(self, idx, itr):
+		if __debug__: print "Finished Crop", idx, itr
+		self.model.row_changed((idx,), itr)
 	
 	def Quit(self, action):
 		self.wCropper.destroy()

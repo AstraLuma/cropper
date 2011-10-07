@@ -1,4 +1,5 @@
 import gobject
+import traceback
 from ..usefulgprop import property as gprop
 
 MODULES = []
@@ -46,6 +47,7 @@ class CropManager(object):
 			except NotImplementedError:
 				pass
 			else:
+				if __debug__: print "CropManager:", m.__name__
 				break
 		else:
 			raise NotImplementedError
@@ -56,7 +58,7 @@ class CropManager(object):
 		
 		Returns an object that's used for syncronization.
 		"""
-		return self.do_crop()
+		return self.cm.do_crop(rect, dest)
 	
 	def __enter__(self): return self
 	
@@ -66,15 +68,17 @@ class CropManager(object):
 		"""
 		return self.cm.__exit__(exc_type, exc_val, exc_tb)
 
-#class ProgressTracker(gobject.GObject):
-class ProgressTracker(object):
+class ProgressTracker(gobject.GObject):
+#class ProgressTracker(object):
 	"""
 	Helps syncronize the backends and the UI.
+	
+	This is basically a deferred.
 	"""
-#	__gtype_name__ = None
 	__gsignals__ = {
 		'finished': (gobject.SIGNAL_RUN_FIRST, None, ()),
-		'error': (gobject.SIGNAL_RUN_FIRST, None, (type, Exception, object)), #exc_type, exc_val, exc_tb
+#		'error': (gobject.SIGNAL_RUN_FIRST, None, (type, Exception, object)), #exc_type, exc_val, exc_tb
+		'error': (gobject.SIGNAL_RUN_FIRST, None, (gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT, gobject.TYPE_PYOBJECT)), #exc_type, exc_val, exc_tb
 		}
 	value = gprop(
 		type=gobject.TYPE_DOUBLE,
@@ -144,6 +148,7 @@ class ProgressTracker(object):
 		if exc_type is None:
 			if self._autofinish: self.finish()
 		else:
+			traceback.print_exception(exc_type, exc_val, exc_tb)
 			self.emit('error', exc_type, exc_val, exc_tb)
 		return True
 

@@ -5,7 +5,7 @@ Uses the Python Imaging Library. I consider PIL to be decent quality, but lacks
 in certain areas.
 """
 from __future__ import division, absolute_import, with_statement
-import cStringIO as StringIO
+import StringIO as StringIO
 from ..backends import ProgressTracker
 
 try:
@@ -20,6 +20,7 @@ def decode(pbl):
 	"""decode(PixbufLoader)
 	Pretty much just passes the image data to the PixbufLoader.
 	"""
+	#FIXME: Fails with alpha channel
 	try:
 		parser = PIL.ImageFile.Parser()
 		imgdata = yield 
