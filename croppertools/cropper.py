@@ -10,15 +10,15 @@ import gtk
 gtk.gdk.threads_init()
 #gobject.threads_init()
 import gio, gobject, glib
+import sys, os, subprocess, traceback
 from optparse import OptionParser
-import sys, os, subprocess
-import PIL.Image
 from cStringIO import StringIO
 
 from .gbuilder import BuilderWindow, resource
 from .box import Box
 from .boxmodel import BoxListStore, make_absolute
 from .imagespace import ImageSpace
+from .backends import CropManager, decode
 
 __version__ = 'dev'
 
@@ -230,9 +230,7 @@ class Cropper(BuilderWindow):
 		self.model.clear()
 		#Use gtk.gdk.PixbufLoader
 		# open the file
-		pbl = gtk.gdk.PixbufLoader()
-		self.isImage.loadfrompixbuf(pbl)
-		self._loadfromgio(pbl, filename)
+		self._loadfromgio(filename)
 		
 		self.crop_dir = filename.get_parent()
 		self.fcbCropDir.set_current_folder_file(self.crop_dir)
@@ -249,30 +247,38 @@ class Cropper(BuilderWindow):
 	
 	imagedata = None
 	
-	def _loadfromgio(self, pbl, fil):
+	def _loadfromgio(self, fil):
+		pbl = gtk.gdk.PixbufLoader()
+		self.isImage.loadfrompixbuf(pbl)
+		dec = decode(pbl)
+		dec.next() #Initialize the decoder.
+		self.imagedata = ''
 		#TODO: Reimplement progressive reading
 		def _open(f, result):
 			try:
 				s = fil.read_finish(result)
 #			except (gio.Error), err:
 			except Exception, err:
+				traceback.print_exc()
 				self.show_error_dialog("Error loading image", err.message)
 			else:
 				data = s.read()
 				self.imagedata += data
 				try:
-					pbl.write(data)
+					dec.send(data)
 				except Exception, err:
+					traceback.print_exc()
 					self.show_error_dialog("Error loading image", err.message)
 			finally:
 				try:
+					dec.close()
 					pbl.close()
 				except Exception, err:
+					traceback.print_exc()
 					if self.imagedata:
 						self.show_error_dialog("Error loading image", err.message)
 					else:
 						pass # Not really an error
-		self.imagedata = ''
 		fil.read_async(_open)
 	
 	def Crop(self, action):
@@ -295,23 +301,19 @@ class Cropper(BuilderWindow):
 			filename = dlg.get_file()
 			dlg.destroy()
 		
-		#TODO: Make this async
 		#TODO: Check for conflicts, and ask user (make use of gio etags?)
-		
-		origin = PIL.Image.open(StringIO(self.imagedata))
-		
-		for fn, box in ((r[0],r[1]) for r in self.model):
-			print "fn:", fn,
-			r = box.rect
-			img = origin.crop((r.x, r.y, r.x+r.width, r.y+r.height))
-			
-			dest = self.crop_dir.get_child(fn)
-			print self.crop_dir, dest
-			ext = os.path.splitext(dest.get_basename())[1].lower()
-			img.save(dest.replace('', False), PIL.Image.EXTENSION.get(ext, origin.format))
-		# Update the model
-		self.model.foreach(BoxListStore.row_changed)
-
+		with CropManager(None, self.isImage.image, self.imagedata) as cm:
+			for idx, itr, row in [(idx, self.model.get_iter(idx), row) for idx, row in enumerate(self.model)]:
+				fn, box = row[0],row[1]
+				dest = self.crop_dir.get_child(fn)
+				print self.crop_dir, dest
+				sync = cm.do_crop(box.rect, dest)
+				sync.connect('finished', lambda sync: self.crop_done(idx, itr))
+	
+	def crop_done(self, idx, itr):
+		if __debug__: print "Finished Crop", idx, itr
+		self.model.row_changed((idx,), itr)
+	
 	def Quit(self, action):
 		self.wCropper.destroy()
 	
@@ -380,7 +382,7 @@ class Cropper(BuilderWindow):
 			'name': 'cropper',
 			'authors': ['James Bliss <james.bliss@astro73.com>'],
 			'copyright': u'\N{COPYRIGHT SIGN} 2011 James Bliss',
-			'website': 'https://astronouth7303.github.com/cropper'
+			'website': 'https://astro73.com/cropper'
 			}
 		if self.wCropper.get_property('icon-name'):
 			props['logo-icon-name'] = self.wCropper.get_property('icon-name')
