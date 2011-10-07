@@ -62,8 +62,6 @@ class CropManager(object):
 			
 			if __debug__: print "GTK: Crop Format", typ
 			img.save_to_callback(out.write, typ)
-			
-			rv.finish()
 		return rv
 	
 	def __enter__(self): return self

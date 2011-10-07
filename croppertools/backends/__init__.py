@@ -1,6 +1,7 @@
 import gobject
 import traceback
 from ..usefulgprop import property as gprop
+__all__ = 'decode', 'CropManager', 'ProgressTracker'
 
 MODULES = []
 
