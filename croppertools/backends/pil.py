@@ -5,15 +5,33 @@ Uses the Python Imaging Library. I consider PIL to be decent quality, but lacks
 in certain areas.
 """
 from __future__ import division, absolute_import, with_statement
+import cStringIO as StringIO
 from ..backends import ProgressTracker
 
 try:
-	import PIL.Image
+	import PIL.Image, PIL.ImageFile
 except ImportError:
 	PIL = None
 
 def module_available():
 	return PIL is not None
+
+def decode(pbl):
+	"""decode(PixbufLoader)
+	Pretty much just passes the image data to the PixbufLoader.
+	"""
+	try:
+		parser = PIL.ImageFile.Parser()
+		imgdata = yield 
+		while True:
+			parser.feed(imgdata)
+			imgdata = yield
+	except GeneratorExit:
+		img = parser.close()
+		sio = StringIO.StringIO()
+		img.save(sio, 'ppm')
+		pbl.write(sio.getvalue())
+		sio.close()
 
 """
 		origin = PIL.Image.open(StringIO(self.imagedata))

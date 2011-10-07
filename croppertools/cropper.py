@@ -10,16 +10,15 @@ import gtk
 gtk.gdk.threads_init()
 #gobject.threads_init()
 import gio, gobject, glib
+import sys, os, subprocess, traceback
 from optparse import OptionParser
-import sys, os, subprocess
-import PIL.Image
 from cStringIO import StringIO
 
 from .gbuilder import BuilderWindow, resource
 from .box import Box
 from .boxmodel import BoxListStore, make_absolute
 from .imagespace import ImageSpace
-from .backends import CropManager
+from .backends import CropManager, decode
 
 __version__ = 'dev'
 
@@ -231,9 +230,7 @@ class Cropper(BuilderWindow):
 		self.model.clear()
 		#Use gtk.gdk.PixbufLoader
 		# open the file
-		pbl = gtk.gdk.PixbufLoader()
-		self.isImage.loadfrompixbuf(pbl)
-		self._loadfromgio(pbl, filename)
+		self._loadfromgio(filename)
 		
 		self.crop_dir = filename.get_parent()
 		self.fcbCropDir.set_current_folder_file(self.crop_dir)
@@ -250,30 +247,38 @@ class Cropper(BuilderWindow):
 	
 	imagedata = None
 	
-	def _loadfromgio(self, pbl, fil):
+	def _loadfromgio(self, fil):
+		pbl = gtk.gdk.PixbufLoader()
+		self.isImage.loadfrompixbuf(pbl)
+		dec = decode(pbl)
+		dec.next() #Initialize the decoder.
+		self.imagedata = ''
 		#TODO: Reimplement progressive reading
 		def _open(f, result):
 			try:
 				s = fil.read_finish(result)
 #			except (gio.Error), err:
 			except Exception, err:
+				traceback.print_exc()
 				self.show_error_dialog("Error loading image", err.message)
 			else:
 				data = s.read()
 				self.imagedata += data
 				try:
-					pbl.write(data)
+					dec.send(data)
 				except Exception, err:
+					traceback.print_exc()
 					self.show_error_dialog("Error loading image", err.message)
 			finally:
 				try:
+					dec.close()
 					pbl.close()
 				except Exception, err:
+					traceback.print_exc()
 					if self.imagedata:
 						self.show_error_dialog("Error loading image", err.message)
 					else:
 						pass # Not really an error
-		self.imagedata = ''
 		fil.read_async(_open)
 	
 	def Crop(self, action):

@@ -14,6 +14,15 @@ def module_available():
 	"""
 	return True
 
+def decode(pbl):
+	"""decode(PixbufLoader)
+	Pretty much just passes the image data to the PixbufLoader.
+	"""
+	imgdata = yield 
+	while True:
+		pbl.write(imgdata)
+		imgdata = yield
+
 class Module(object):
 	"""
 	Manages the cropping process. One will be instantiated for each image to 
@@ -22,7 +31,7 @@ class Module(object):
 	Implements the context manager interface so we know when we can free stuff up.
 	"""
 	
-	def __init__(self, _, pb, _):
+	def __init__(self, gf, pb, img):
 		"""Module(gio.File, gtk.gdk.PixBuf, blob)
 		Just stores the pixbuf for later use.
 		"""
@@ -50,6 +59,8 @@ class Module(object):
 				with rv:
 					try:
 						dest.replace('', False).write(buf)
+					except:
+						raise
 					else:
 						rv.finish()
 		

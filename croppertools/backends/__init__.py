@@ -1,8 +1,26 @@
 import gobject
-from .usefulgprop import property as gprop
+from ..usefulgprop import property as gprop
 
-import jpegtrans, magickwand, imagemagick, pil, gtkpixbuf
-MODULES = [jpegtrans, magickwand, imagemagick, pil, gtkpixbuf]
+MODULES = []
+
+def decode(pbl):
+	"""decode(PixbufLoader)
+	Decodes an image. A coroutine, though.
+	Takes image data on send(). Call close() when there is no more data.
+	"""
+	#TODO: Recover on error and attempt other backends
+	for m in MODULES:
+		if hasattr(m, 'decode'): break
+	if __debug__: print m
+	dec = m.decode(pbl)
+	dec.next()
+	try:
+		imgdata = yield
+		while imgdata is not None:
+			dec.send(imgdata)
+			imgdata = yield
+	except GeneratorExit:
+		dec.close()
 
 class CropManager(object):
 	"""
@@ -34,10 +52,12 @@ class CropManager(object):
 		We're done with this cropping business. Clean up.
 		"""
 
-class ProgressTracker(gobject.GObject):
+#class ProgressTracker(gobject.GObject):
+class ProgressTracker(object):
 	"""
 	Helps syncronize the backends and the UI.
 	"""
+#	__gtype_name__ = None
 	__gsignals__ = {
 		'finished': (gobject.SIGNAL_RUN_FIRST, None, ()),
 		'error': (gobject.SIGNAL_RUN_FIRST, None, (type, Exception, object)), #exc_type, exc_val, exc_tb
@@ -64,6 +84,7 @@ class ProgressTracker(gobject.GObject):
 	_autofinish = True
 	
 	def __init__(self, autofinish=True):
+		super(ProgressTracker, self).__init__()
 		self._autofinish = autofinish
 	
 	def finish(self):
@@ -83,17 +104,17 @@ class ProgressTracker(gobject.GObject):
 		elif signal == 'error' and self._err is not None: handler(self, *self._err)
 		super(ProgressTracker, self).connect(signal, handler)
 	
-	def connect_after(self, signal, handler)
+	def connect_after(self, signal, handler):
 		if signal == 'finished' and self._finished is not None: handler(self)
 		elif signal == 'error' and self._err is not None: handler(self, *self._err)
 		super(ProgressTracker, self).connect_after(signal, handler)
 	
-	def connect_object(self, signal, handler, gobj)
+	def connect_object(self, signal, handler, gobj):
 		if signal == 'finished' and self._finished is not None: handler(gobj)
 		elif signal == 'error' and self._err is not None: handler(gobj, *self._err)
 		super(ProgressTracker, self).connect_object(signal, handler, gobj)
 		
-	def connect_object_after(self, signal, handler, gobj)
+	def connect_object_after(self, signal, handler, gobj):
 		if signal == 'finished' and self._finished is not None: handler(gobj)
 		elif signal == 'error' and self._err is not None: handler(gobj, *self._err)
 		super(ProgressTracker, self).connect_object_after(signal, handler, gobj)
@@ -111,4 +132,10 @@ class ProgressTracker(gobject.GObject):
 		else:
 			self.emit('error', exc_type, exc_val, exc_tb)
 		return True
+
+import jpegtrans, magickwand, imagemagick, pil, gtkpixbuf
+MODULES = filter((lambda m: m.module_available()), [jpegtrans, magickwand, imagemagick, pil, gtkpixbuf])
+
+print MODULES
+
 

@@ -10,10 +10,19 @@ from ..backends import ProgressTracker
 
 def module_available():
 	"""module_available() -> boolean
-	Returns True if the utilities/libraries/oracle that this module uses is 
-	available. This is used as a fast filter.
+	Decodes an image. A coroutine, though.
+	Takes image data on send(). Exits when None is received.
 	"""
 	return True
+
+def decode(pbl):
+	"""decode(PixbufLoader)
+	Pretty much just passes the image data to the PixbufLoader.
+	"""
+	imgdata = yield 
+	while True:
+		pbl.write(imgdata)
+		imgdata = yield
 
 class Module(object):
 	"""
