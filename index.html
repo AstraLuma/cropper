@@ -28,10 +28,15 @@
 			color: #5A2; 
 			margin-bottom: 3px;
 		}
-		h1 .small { font-size: 0.4em; }
+		h1 .small { 
+			font-size: 0.4em; 
+			font-family: sans-serif;
+		}
 		h1 a { text-decoration: none; }
-		h1 > span > a { font-family: serif; }
-		h2 { font-size: 1.5em; color: #5A2; }
+		h1, h2, h3, h4, h5, h6 {
+			font-family: serif;
+		}
+		h2 { font-size: 2em; color: #5A2; }
 		h3 { text-align: center; color: #5A2; }
 		a { color: #5A2; }
 		.description { font-size: 1.2em; margin-bottom: 30px; margin-top: 30px; font-style: italic;}
@@ -61,6 +66,11 @@
 		#screenshot {
 			cursor: pointer;
 		}
+		.download h4 {
+			margin: 0;
+			font-size: 1.5em;
+			color: #5A2;
+		}
 	</style>
 	<script src="https://ajax.googleapis.com/ajax/libs/jquery/1.6.4/jquery.min.js"></script>
 	<script>
@@ -85,13 +95,11 @@
 	<div id="logo"><img src="logo.svg" width=140></div>
 	
 	<div class="download box-F0A">
-		Download<br>
+		<h4>Download</h4>
 		<a href="http://github.com/astronouth7303/cropper/zipball/master">
-			<img border="0" width="90" src="http://github.com/images/modules/download/zip.png" title="Download zip file">
-		</a>
+			<img border="0" width="90" src="http://github.com/images/modules/download/zip.png" title="Download zip file"></a>
 		<a href="http://github.com/astronouth7303/cropper/tarball/master">
-			<img border="0" width="90" src="http://github.com/images/modules/download/tar.png" title="Download tarball">
-		</a>
+			<img border="0" width="90" src="http://github.com/images/modules/download/tar.png" title="Download tarball"></a>
 	</div>
 
 	<h1><span class="box-0AF">
